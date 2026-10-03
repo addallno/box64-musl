@@ -130,15 +130,19 @@ def patch(srcdir: str) -> int:
     libc = apply(libc, anchor, NEW_FUNCS + anchor, 1,
                  "pathmap2 哨兵", "wrappedlibc.c")
 
-    # 2) private.h：shmget 条目前插 GOWM 绑定
+    # 2) private.h：GO(shmget) 条目前插 GOM(shm_open/shm_unlink) + sysvipc 4 条
+    new_lines = (
+        "GOM(shm_open, iFEpii)    // " + SENTINEL + " GOM非weak(919直查)\n"
+        "GOM(shm_unlink, iFEpi)   // " + SENTINEL + " GOM非weak(919直查)\n"
+        "GOM(shmget, iFEpii)     // " + SENTINEL + " sysvipc musl缺失(3参全i32, size截32位)\n"
+        "GOM(shmat, pFEpip)      // " + SENTINEL + " sysvipc\n"
+        "GOM(shmdt, iFEp)        // " + SENTINEL + " sysvipc\n"
+        "GOM(shmctl, iFEpip)     // " + SENTINEL + " sysvipc\n"
+        "GO(shmget, iFiLi)\n"
+    )
     priv = apply(priv,
                  "GO(shmget, iFiLi)\n",
-                 "GOM(shm_open, iFEpii)    // " + SENTINEL + " GOM非weak(919直查)"
-                 "GOM(shm_unlink, iFEpi)   // " + SENTINEL + " GOM非weak(919直查)"
-                 , "GOM(shmget, iFEpii)     // " + SENTINEL + " sysvipc musl缺失(3参全i32, size截32位)\n"
-                 "GOM(shmat, pFEpip)      // " + SENTINEL + " sysvipc\n"
-                 "GOM(shmdt, iFEp)        // " + SENTINEL + " sysvipc\n"
-                 "GOM(shmctl, iFEpip)     // " + SENTINEL + " sysvipc\n"                 "GO(shmget, iFiLi)\n",
+                 new_lines,
                  1, "GO(shmget)", "wrappedlibc_private.h")
 
     # --- job5a: wrappedlibrt 抢跑条目改 GOM（shm_open/shm_unlink 归 my_ 处理）---
