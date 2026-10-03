@@ -70,6 +70,30 @@ EXPORT int my_shm_unlink(x64emu_t* emu, const char* name)
     }
     return unlink(path);
 }
+
+EXPORT int my_shmget(x64emu_t* emu, int32_t key, int32_t size, int32_t flag)
+{
+    (void)emu;
+    return syscall(SYS_shmget, key, size, flag);
+}
+
+EXPORT void* my_shmat(x64emu_t* emu, int32_t shmid, void* addr, int32_t flag)
+{
+    (void)emu;
+    return (void*)syscall(SYS_shmat, shmid, addr, flag);
+}
+
+EXPORT int my_shmdt(x64emu_t* emu, const void* addr)
+{
+    (void)emu;
+    return syscall(SYS_shmdt, addr);
+}
+
+EXPORT int my_shmctl(x64emu_t* emu, int32_t shmid, int32_t cmd, void* buf)
+{
+    (void)emu;
+    return syscall(SYS_shmctl, shmid, cmd, buf);
+}
 '''
 
 
@@ -111,7 +135,10 @@ def patch(srcdir: str) -> int:
                  "GO(shmget, iFiLi)\n",
                  "GOM(shm_open, iFEpii)    // " + SENTINEL + " GOM非weak(919直查)"
                  "GOM(shm_unlink, iFEpi)   // " + SENTINEL + " GOM非weak(919直查)"
-                 "GO(shmget, iFiLi)\n",
+                 , "GOM(shmget, iFEpii)     // " + SENTINEL + " sysvipc musl缺失(3参全i32, size截32位)\n"
+                 "GOM(shmat, pFEpip)      // " + SENTINEL + " sysvipc\n"
+                 "GOM(shmdt, iFEp)        // " + SENTINEL + " sysvipc\n"
+                 "GOM(shmctl, iFEpip)     // " + SENTINEL + " sysvipc\n"                 "GO(shmget, iFiLi)\n",
                  1, "GO(shmget)", "wrappedlibc_private.h")
 
     # --- job5a: wrappedlibrt 抢跑条目改 GOM（shm_open/shm_unlink 归 my_ 处理）---
