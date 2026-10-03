@@ -26,7 +26,6 @@ EXPORT int my_shm_open(x64emu_t* emu, const char* name, int oflag, int mode)
 {
     (void)emu;
     int r = shm_open(name, oflag, mode);
-    fprintf(stderr, "[pm3] my_shm_open name=%s oflag=%d mode=%d r=%d errno=%d\n", name?name:"(null)", oflag, mode, r, r<0?errno:0);
     if (r >= 0)
         return r;
     if (!name || name[0] == '\0')
@@ -43,7 +42,6 @@ EXPORT int my_shm_open(x64emu_t* emu, const char* name, int oflag, int mode)
     if (n < 0 || n >= (int)sizeof(path))
         return r;
     int fd = open(path, oflag, mode);
-    fprintf(stderr, "[pm3] fallback open(%s) fd=%d errno=%d\n", path, fd, fd<0?errno:0);
     return fd;
 }
 
@@ -179,30 +177,6 @@ def patch(srcdir: str) -> int:
             f.write(rtc)
         print("patch_pathmap3: wrappedlibrt.c 顶层 extern(2行)")
 
-    # --- job4: library.c resolve 观测（临时调试，定位后撤）---
-    p_libr = os.path.join(srcdir, "src", "librarian", "library.c")
-    with open(p_libr, "r", encoding="utf-8") as f:
-        libr = f.read()
-    if SENTINEL + " gsym" not in libr:
-        a1 = "int getSymbolInMaps(library_t *lib, const char* name, int noweak, uintptr_t *addr, uintptr_t *size, int* weak, int version, const char* vername, int local, int veropt)\n{\n"
-        ins1 = ("                if(strstr(name, \"shm\"))\n"
-                "                    printf(\"[gsym] q='%s' v=%d vo=%d nw=%d lib=%s\\n\", name, version, veropt, noweak, (lib&&lib->name)?lib->name:\"?\");\n"
-                "    // " + SENTINEL + " gsym\n")
-        if libr.count(a1) != 1:
-            raise SystemExit(f"job4a 锚点计数={libr.count(a1)}")
-        libr = libr.replace(a1, a1 + ins1, 1)
-
-        a2 = "    // check in mysymbolmap\n    khint_t k = kh_get_with_hash(symbolmap, lib->w.mysymbolmap, name, hash);\n    if (k!=kh_end(lib->w.mysymbolmap)) {\n        symbol1_t *s = &kh_value(lib->w.mysymbolmap, k);\n"
-        ins2 = ("        if(strstr(name, \"shm\"))\n"
-                "            printf(\"[gsym] HIT mysymbolmap '%s' resolved=%d addr=%p\\n\", name, s->resolved, (void*)s->addr);\n")
-        if libr.count(a2) != 1:
-            raise SystemExit(f"job4b 锚点计数={libr.count(a2)}")
-        libr = libr.replace(a2, a2 + ins2, 1)
-        with open(p_libr, "w", encoding="utf-8") as f:
-            f.write(libr)
-        print("patch_pathmap3: library.c 观测已应用(2处)")
-    else:
-        print("patch_pathmap3: library.c 观测已存在, 跳过")
 
     with open(p_libc, "w", encoding="utf-8") as f:
         f.write(libc)
