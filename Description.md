@@ -142,7 +142,7 @@ steamcmd 在其 `/root/steam/linux32/`，脚本内 `/media/termux/home` 为 proo
 bionic 环境，不代表 q57 场景）：
 - `git diff 984cd05..HEAD` 确认 **wrapped32/ 0 处改动**；CI run 36970237989
   含 BOX32 编译通过。
-- 新版 box64-bin（705fdfe）proot 内实测（`tests/q57.sh`，timeout 240）：
+- 新版 box64-bin（705fdfe）proot 内实测（`~/openwork/box64-work/q57.sh`，timeout 240）：
   **5 轮中 4 轮完整成功**（rc=0，`Waiting for user info...OK` +
   `Unloading Steam API...OK`，与 2026-09-30 基准 q57_tee2.log 一致），1 轮
   间歇 SIGSEGV；另有 1 轮 rc=0 但未到 user info（登录早退模式）。
