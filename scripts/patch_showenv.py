@@ -5,7 +5,8 @@ showenv：box64 增加 `-e, --show-env` 选项（哨兵 BOX64-BUILD: showenv）�
 
 打印 LoadEnvVariables() 解析后的 box64env 结构（含全部 BOX64_* 开关的
 生效值），用于部署后快速核对 pathmap 等环境变量是否被 box64 正确读取。
-core.c 已有先例：exit 前 PrintEnvVariables(&box64env, LOG_INFO)（core.c:1195）。
+printf_log_prefix 条件 (L)<=BOX64ENV(log)，log 默认 LOG_NONE=0，
+故必须传 LOG_NONE(0) 才无条件打印（LOG_INFO 需 BOX64_LOG>=1）。
 
 改动（仅 src/core.c）：
 1. PrintHelp()：-h 行后插 -e 行
@@ -62,7 +63,7 @@ def patch(srcdir: str) -> int:
     new_opt = (
         old_opt
         + '        if(!strcmp(prog, "-e") || !strcmp(prog, "--show-env")) {\n'
-        + "            PrintEnvVariables(&box64env, LOG_INFO);  // " + SENTINEL + "\n"
+        + "            PrintEnvVariables(&box64env, LOG_NONE);  // " + SENTINEL + " LOG_NONE=0\n"
         + "            exit(0);\n"
         + "        }\n"
     )
