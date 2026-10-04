@@ -38,6 +38,11 @@ NEW_FUNCS = (
     "    (void)emu;\n"
     "    return access((const char*)box64_pathmap(path), mode);\n"
     "}\n"
+    "EXPORT int my_mkdirat(x64emu_t* emu, int dirfd, const char* path, mode_t mode)\n"
+    "{\n"
+    "    (void)emu;\n"
+    "    return mkdirat(dirfd, (const char*)box64_pathmap(path), mode);\n"
+    "}\n"
 )
 
 
@@ -100,12 +105,16 @@ def patch(srcdir: str) -> int:
                  1, "GOW(access)", "wrappedlibc_private.h")
     priv = apply(priv, "GOW(mkdir, iFpu)\n", "GOM(mkdir, iFEpu)     // BOX64-BUILD: pathmap2 GOM 非weak直查(919行)\n",
                  1, "GOW(mkdir)", "wrappedlibc_private.h")
+    # mkdirat：glibc 直通条目绕过 layer1 syscall hook（Breakpad dumps 目录创建失败根因）
+    priv = apply(priv, "GO(mkdirat, iFipu)\n",
+                 "GOM(mkdirat, iFEpip)   // BOX64-BUILD: pathmap2 at族GOM直查(919行)\n",
+                 1, "GO(mkdirat)", "wrappedlibc_private.h")
 
     with open(p_libc, "w", encoding="utf-8") as f:
         f.write(libc)
     with open(p_priv, "w", encoding="utf-8") as f:
         f.write(priv)
-    print("patch_pathmap2: 已应用 -> wrappedlibc.c(4处), wrappedlibc_private.h(2处)")
+    print("patch_pathmap2: 已应用 -> wrappedlibc.c(5处), wrappedlibc_private.h(3处)")
     return 0
 
 
