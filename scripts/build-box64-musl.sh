@@ -336,6 +336,9 @@ python3 $GITHUB_WORKSPACE/scripts/patch_pathmap3.py $WORK/box64
 echo "==> 打 showenv 补丁（-e/--show-env 打印 box64env）"
 python3 $GITHUB_WORKSPACE/scripts/patch_showenv.py $WORK/box64
 
+echo "==> 打 dlclose-log 补丁（my_dlclose 日志升 LOG_INFO 抓 handle）"
+python3 $GITHUB_WORKSPACE/scripts/patch_dlclose_log.py $WORK/box64
+
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
 if [ -s "$MUSL_SYMS" ]; then
