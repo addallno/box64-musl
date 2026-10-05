@@ -170,6 +170,47 @@ static int box64_dns_lookup(const char* host, int want_v6, char out[][64], int m
     return nxd ? EAI_NONAME : EAI_AGAIN;
 }
 
+// TCP 探测单个 IPv4：非阻塞 connect + select 500ms + SO_ERROR
+static int box64_dns_probe4(const char* ip, int port)
+{
+    int s = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+    if (s < 0)
+        return 0;
+    struct sockaddr_in sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sin_family = AF_INET;
+    sa.sin_port = htons((uint16_t)(port > 0 ? port : 80));
+    if (inet_pton(AF_INET, ip, &sa.sin_addr) != 1) {
+        close(s);
+        return 0;
+    }
+    int r = connect(s, (struct sockaddr*)&sa, sizeof(sa));
+    if (r == 0) {
+        close(s);
+        return 1;
+    }
+    if (errno != EINPROGRESS) {
+        close(s);
+        return 0;
+    }
+    fd_set wf;
+    FD_ZERO(&wf);
+    FD_SET(s, &wf);
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 500000;
+    r = select(s + 1, NULL, &wf, NULL, &tv);
+    if (r <= 0) {
+        close(s);
+        return 0;
+    }
+    int err = 0;
+    socklen_t el = sizeof(err);
+    getsockopt(s, SOL_SOCKET, SO_ERROR, &err, &el);
+    close(s);
+    return err == 0;
+}
+
 // native 不可用时的解析组链（calloc 组装，与 native freeaddrinfo 的 musl free 配对）
 static int box64_dns_fallback(const char* node, const char* service,
     const struct addrinfo* hints, struct addrinfo** res)
@@ -214,6 +255,22 @@ static int box64_dns_fallback(const char* node, const char* service,
     }
     if (cnt <= 0)
         return EAI_NONAME;
+    // TCP 探测排序：可达 IP 前置（NS 轮询里的黑洞 IP 会让 steamcmd connect 无限挂起）；
+    // 全部失活保持原序，避免防火墙拦探测误伤
+    if (cnt > 1 && !want_v6) {
+        int alive = 0;
+        char tmp[64];
+        for (int i = 0; i < cnt; ++i) {
+            if (box64_dns_probe4(addrs[i], port)) {
+                if (i != alive) {
+                    memcpy(tmp, addrs[alive], 64);
+                    memcpy(addrs[alive], addrs[i], 64);
+                    memcpy(addrs[i], tmp, 64);
+                }
+                ++alive;
+            }
+        }
+    }
     int stype = hints ? hints->ai_socktype : 0;
     int proto = hints ? hints->ai_protocol : 0;
     int oflags = hints ? hints->ai_flags : 0;
