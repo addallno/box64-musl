@@ -207,59 +207,80 @@ def patch(srcdir: str) -> int:
             f.write(h)
         print("patch_mutex_deadowner_wrap: 已应用 -> wrappedlibpthread_private.h")
 
-    # 段3：threads.c 三个 cond 桥入口预修复
+    # 段3：threads.c 五个 cond 桥入口预修复（含 _old：guest glibc 走 @GLIBC_2.2.5 版本化符号→GO2→_old 变体）
     with open(p3, "r", encoding="utf-8") as f:
         t = f.read()
-    if "box64_fix_dead_mutex(mutex)" in t:
+    if t.count("box64_fix_dead_mutex(mutex);") >= 5:
         print("patch_mutex_deadowner_wrap: 段3 已应用过，跳过")
         print("patch_mutex_deadowner_wrap: 完成")
         return 0
 
-    old_t1 = (
+    def add_once(src, old, new, name):
+        if new in src:
+            return src
+        return apply(src, old, new, 1, name, "threads.c")
+
+    t = add_once(
+        t,
         "EXPORT int my_pthread_cond_timedwait(x64emu_t* emu, pthread_cond_t* cond, void* mutex, void* abstime)\n"
         "{\n"
         "\t(void)emu;\n"
-        "\tint ret = pthread_cond_timedwait(alignCond(cond), mutex, (const struct timespec*)abstime);"
-    )
-    new_t1 = (
+        "\tint ret = pthread_cond_timedwait(alignCond(cond), mutex, (const struct timespec*)abstime);",
         "extern int box64_fix_dead_mutex(void*);\n"
         "EXPORT int my_pthread_cond_timedwait(x64emu_t* emu, pthread_cond_t* cond, void* mutex, void* abstime)\n"
         "{\n"
         "\t(void)emu;\n"
         "\tbox64_fix_dead_mutex(mutex);\n"
-        "\tint ret = pthread_cond_timedwait(alignCond(cond), mutex, (const struct timespec*)abstime);"
-    )
-    t = apply(t, old_t1, new_t1, 1, "my_pthread_cond_timedwait", "threads.c")
+        "\tint ret = pthread_cond_timedwait(alignCond(cond), mutex, (const struct timespec*)abstime);",
+        "my_pthread_cond_timedwait")
 
-    old_t2 = (
+    t = add_once(
+        t,
         "EXPORT int my_pthread_cond_wait(x64emu_t* emu, pthread_cond_t* cond, void* mutex)\n"
         "{\n"
         "\t(void)emu;\n"
-        "\tint ret = pthread_cond_wait(alignCond(cond), mutex);"
-    )
-    new_t2 = (
+        "\tint ret = pthread_cond_wait(alignCond(cond), mutex);",
         "EXPORT int my_pthread_cond_wait(x64emu_t* emu, pthread_cond_t* cond, void* mutex)\n"
         "{\n"
         "\t(void)emu;\n"
         "\tbox64_fix_dead_mutex(mutex);\n"
-        "\tint ret = pthread_cond_wait(alignCond(cond), mutex);"
-    )
-    t = apply(t, old_t2, new_t2, 1, "my_pthread_cond_wait", "threads.c")
+        "\tint ret = pthread_cond_wait(alignCond(cond), mutex);",
+        "my_pthread_cond_wait")
 
-    old_t3 = (
+    t = add_once(
+        t,
         "EXPORT int my_pthread_cond_clockwait(x64emu_t *emu, pthread_cond_t* cond, void* mutex, clockid_t __clock_id, const struct timespec* __abstime)\n"
         "{\n"
         "\t(void)emu;\n"
-        "\tint ret;"
-    )
-    new_t3 = (
+        "\tint ret;",
         "EXPORT int my_pthread_cond_clockwait(x64emu_t *emu, pthread_cond_t* cond, void* mutex, clockid_t __clock_id, const struct timespec* __abstime)\n"
         "{\n"
         "\t(void)emu;\n"
         "\tbox64_fix_dead_mutex(mutex);\n"
-        "\tint ret;"
-    )
-    t = apply(t, old_t3, new_t3, 1, "my_pthread_cond_clockwait", "threads.c")
+        "\tint ret;",
+        "my_pthread_cond_clockwait")
+
+    t = add_once(
+        t,
+        "EXPORT int my_pthread_cond_timedwait_old(x64emu_t* emu, pthread_cond_old_t* cond, void* mutex, void* abstime)\n"
+        "{\n"
+        "    (void)emu;\n",
+        "EXPORT int my_pthread_cond_timedwait_old(x64emu_t* emu, pthread_cond_old_t* cond, void* mutex, void* abstime)\n"
+        "{\n"
+        "    (void)emu;\n"
+        "    box64_fix_dead_mutex(mutex);\n",
+        "my_pthread_cond_timedwait_old")
+
+    t = add_once(
+        t,
+        "EXPORT int my_pthread_cond_wait_old(x64emu_t* emu, pthread_cond_old_t* cond, void* mutex)\n"
+        "{\n"
+        "    (void)emu;\n",
+        "EXPORT int my_pthread_cond_wait_old(x64emu_t* emu, pthread_cond_old_t* cond, void* mutex)\n"
+        "{\n"
+        "    (void)emu;\n"
+        "    box64_fix_dead_mutex(mutex);\n",
+        "my_pthread_cond_wait_old")
 
     with open(p3, "w", encoding="utf-8") as f:
         f.write(t)
