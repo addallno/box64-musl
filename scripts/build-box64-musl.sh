@@ -342,6 +342,9 @@ python3 $GITHUB_WORKSPACE/scripts/patch_dlclose_log.py $WORK/box64
 echo "==> 打 malloc-lock-fork 补丁（atfork child 清 __malloc_lock 防 fork 死锁）"
 python3 $GITHUB_WORKSPACE/scripts/patch_malloc_lock_fork.py $WORK/box64
 
+echo "==> 打 futex-eownerdied 补丁（robust owner 已死时注入 EOWNER_DIED 防 fork 子进程永挂）"
+python3 $GITHUB_WORKSPACE/scripts/patch_futex_eownerdied.py $WORK/box64
+
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
 if [ -s "$MUSL_SYMS" ]; then
