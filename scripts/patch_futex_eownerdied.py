@@ -66,6 +66,7 @@ def patch(srcdir: str) -> int:
         "            ++ftr202;\n"
         '            printf_log(LOG_NONE, "futex-trace #%d op=0x%lx val=0x%x uaddr=%p gettid=%d // ' + SENTINEL + '\\n",\n'
         "                       ftr202, (unsigned long)R_{OP}, (unsigned)R_{VAL}, (void*)R_{UADDR}, GetTID());\n"
+        "            fflush(stdout);\n"
         "        }\n"
         "        if((R_{OP} & 0x7F) == 0 /* FUTEX_WAIT */) {\n"
         "            uint32_t fval = R_{VAL};\n"
@@ -80,6 +81,7 @@ def patch(srcdir: str) -> int:
         "                            *fw = 0x40000000 | (fval & 0x80000000);  // 内核 handle_futex_death：保留 WAITERS、tid 清零、置 OWNER_DIED\n"
         '                        printf_log(LOG_NONE, "futex: owner tid %u 已死, 注入 EOWNER_DIED (val=0x%x uaddr=%p) // ' + SENTINEL + '\\n",\n'
         "                                   fowner, fval, (void*)R_{UADDR});\n"
+        "                        fflush(stdout);\n"
         + "{RET}"
         + "                    }\n"
         "                }\n"
