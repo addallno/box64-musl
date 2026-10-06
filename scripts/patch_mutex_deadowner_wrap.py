@@ -32,7 +32,7 @@ import os
 import sys
 
 SENTINEL = "BOX64-BUILD: mutex-deadowner"
-FIXFN = "EXPORT int box64_fix_dead_mutex"
+FIXFN = "md-fix-enter pid"
 
 
 def fail(msg):
@@ -144,6 +144,17 @@ def patch(srcdir: str) -> int:
             "// __pthread_mutex_lock 不经 wrap 表，只能在进桥前复位死 owner 锁字\n"
             "EXPORT int box64_fix_dead_mutex(void* m)\n"
             "{\n"
+            "    // md-fix-enter 入口诊断：cond 桥被调则此处必打（fork child pid 变化重置计数）\n"
+            "    static int mdfixpid = 0;\n"
+            "    static int mdfixn = 0;\n"
+            "    if(getpid() != mdfixpid) { mdfixpid = (int)getpid(); mdfixn = 0; }\n"
+            "    if(mdfixn < 20) {\n"
+            "        ++mdfixn;\n"
+            "        char mdibuf[160];\n"
+            '        int mdin = snprintf(mdibuf, sizeof(mdibuf), "md-fix-enter pid=%d #%d m=%p v0=0x%x // ' + SENTINEL + '\\n",\n'
+            "                             (int)getpid(), mdfixn, m, __atomic_load_n((uint32_t*)m, __ATOMIC_RELAXED));\n"
+            "        if(mdin > 0) write(2, mdibuf, (size_t)mdin);\n"
+            "    }\n"
             "    unsigned char* base = (unsigned char*)m;\n"
             "    int off;\n"
             "    for(off = 0; off <= 16; off += 4) {\n"
