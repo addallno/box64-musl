@@ -339,6 +339,9 @@ python3 $GITHUB_WORKSPACE/scripts/patch_showenv.py $WORK/box64
 echo "==> 打 dlclose-log 补丁（my_dlclose 日志升 LOG_INFO 抓 handle）"
 python3 $GITHUB_WORKSPACE/scripts/patch_dlclose_log.py $WORK/box64
 
+echo "==> 打 malloc-lock-fork 补丁（atfork child 清 __malloc_lock 防 fork 死锁）"
+python3 $GITHUB_WORKSPACE/scripts/patch_malloc_lock_fork.py $WORK/box64
+
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
 if [ -s "$MUSL_SYMS" ]; then
