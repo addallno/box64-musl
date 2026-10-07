@@ -307,19 +307,19 @@ echo "==> 打 syscallwrap 补丁（sendmmsg/shm，静态程序 DNS 依赖）"
 python3 $GITHUB_WORKSPACE/scripts/patch_syscalls.py $WORK/box64
 
 echo "==> 打 clone 修复补丁（绕过 musl clone() 包装层 EINVAL，带 [CLONERAW] 打点，验证后撤）"
-runbp patch_clone_raw.py
+python3 $GITHUB_WORKSPACE/scripts/patch_clone_raw.py $WORK/box64
 
 echo "==> 打 P0 修复补丁（arm64_lock release/casal flags/epoll 越界与溢出）"
-runbp patch_p0fixes.py
+python3 $GITHUB_WORKSPACE/scripts/patch_p0fixes.py $WORK/box64
 
 echo "==> 打 B5 补丁（cntfrq=0 校准兜底，保住硬件计数器）"
-runbp patch_b5tsc.py
+python3 $GITHUB_WORKSPACE/scripts/patch_b5tsc.py $WORK/box64
 runbp patch_jmptbl_acquire.py
 echo "==> 打 munmap 守卫补丁（EXPORT munmap 按 mapallmem 标记拒拆内部页，B-12 修复）"
-runbp patch_munmap_guard.py
+python3 $GITHUB_WORKSPACE/scripts/patch_munmap_guard.py $WORK/box64
 
 echo "==> 打 maps 重读粒度补丁（库加载不再全量重读 /proc/self/maps，B2）"
-runbp patch_b2maps.py
+python3 $GITHUB_WORKSPACE/scripts/patch_b2maps.py $WORK/box64
 
 echo "==> 打版本 stamp 注入补丁（CMake git_head.h + banner，批次3 #15）"
 python3 $GITHUB_WORKSPACE/scripts/patch_stamp.py $WORK/box64
@@ -328,7 +328,7 @@ echo "==> 打 join 日志插桩补丁（pthread_join 失败错误码，steam 卡
 python3 $GITHUB_WORKSPACE/scripts/patch_joinlog.py $WORK/box64
 
 echo "==> 打 box32 分配族补丁（guest malloc/free 走 actual_*，32 位 steamcmd SIGABRT，B-14）"
-runbp patch_b14_box32_alloc.py
+python3 $GITHUB_WORKSPACE/scripts/patch_b14_box32_alloc.py $WORK/box64
 
 echo "==> 打路径映射补丁（BOX64_PATHMAP 前缀重写，通用 GNU 程序适配）"
 python3 $GITHUB_WORKSPACE/scripts/patch_pathmap.py $WORK/box64
