@@ -21,6 +21,9 @@ steamcmd 永不登录。实测死锁锁字 [0x2, 0x8000502e, 0x1, 0] 即继承�
   - emu/x64syscall.c：case 56 两处（x64Syscall_linux / my_syscall）所有
     fork 语义（!(flags & CLONE_VM)）child 返回点调用聚合函数；vfork(0x4100)
     含 CLONE_VM 天然排除；32-bit path 不在本补丁范围。
+    另：clone_t 加 is_fork 字段 + clone_fn_syscall 入口拦截——覆盖
+    clone(fn, stack!=0) 带栈分支，该分支 child 从 clone_fn_syscall 起跑
+    不返回 case56 汇合点（实测轮2 卡 mutex_dyndump 即此路径）。
 
 用法: patch_atfork_on_clone.py <box64源码目录>
 """
@@ -260,11 +263,89 @@ def patch_x64syscall(srcdir):
     print("patch_atfork_on_clone: 已应用 -> x64syscall.c（4 锚点）")
 
 
+def patch_x64syscall_fn(srcdir):
+    """clone_fn_syscall 路径（增量锚，独立幂等——x64syscall.c 可能已被本脚本
+    旧版打过，不能用 SENTINEL 整文件跳过）。
+
+    crashhandler 也可能走 glibc 式 clone(fn, stack!=0, flags=!CLONE_VM)——
+    box64 case56 线程分支进入 clone(clone_fn_syscall,...)，child 直接从
+    clone_fn_syscall 起跑、永不返回 case56 汇合点，旧 3 拦截点全部失效
+    （实测轮2：child 卡 mutex_dyndump 且 atfork 日志=0）。"""
+    p = os.path.join(srcdir, "src", "emu", "x64syscall.c")
+    if not os.path.isfile(p):
+        fail(f"文件不存在: {p}")
+    with open(p, "r", encoding="utf-8") as f:
+        src = f.read()
+
+    # 1) clone_t 加 is_fork 字段（只打一次）
+    if "int is_fork;" not in src:
+        old = (
+            "    void* tls;\n"
+            "    int set_tls;\n"
+            "} clone_t;\n"
+        )
+        new = (
+            "    void* tls;\n"
+            "    int set_tls;\n"
+            "    int is_fork;\n"
+            "} clone_t;\n"
+        )
+        src = apply(src, old, new, 1, "clone_t 加 is_fork", "x64syscall.c")
+
+        # 2) clone_fn_syscall 入口：fork 语义 child 第一时间跑 atfork 链
+        old = (
+            "static int clone_fn_syscall(void* arg)\n"
+            "{\n"
+            "    clone_t* args = arg;\n"
+        )
+        new = (
+            "static int clone_fn_syscall(void* arg)\n"
+            "{\n"
+            "    clone_t* args = arg;\n"
+            "    // " + SENTINEL + " 开始\n"
+            "    if(args->is_fork)\n"
+            "        box64_atfork_child_all();\n"
+            "    // " + SENTINEL + " 结束\n"
+        )
+        src = apply(src, old, new, 1, "clone_fn_syscall 入口拦截", "x64syscall.c")
+
+        # 3) case56(A) x64Syscall_linux 组装处填 is_fork（20 空格缩进）
+        old = (
+            "                    clone_t* args = box_calloc(1, sizeof(clone_t));\n"
+            "                    newemu->regs[_SP].q[0] = sp;  // setup new stack pointer\n"
+        )
+        new = (
+            "                    clone_t* args = box_calloc(1, sizeof(clone_t));\n"
+            "                    args->is_fork = !(flags & CLONE_VM);\n"
+            "                    newemu->regs[_SP].q[0] = sp;  // setup new stack pointer\n"
+        )
+        src = apply(src, old, new, 1, "case56(A) 组装填 is_fork", "x64syscall.c")
+
+        # 4) case56(B) my_syscall 组装处填 is_fork（16 空格缩进）
+        old = (
+            "                clone_t* args = box_calloc(1, sizeof(clone_t));\n"
+            "                args->emu = newemu;\n"
+        )
+        new = (
+            "                clone_t* args = box_calloc(1, sizeof(clone_t));\n"
+            "                args->is_fork = !(flags & CLONE_VM);\n"
+            "                args->emu = newemu;\n"
+        )
+        src = apply(src, old, new, 1, "case56(B) 组装填 is_fork", "x64syscall.c")
+
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(src)
+        print("patch_atfork_on_clone: 已应用 -> x64syscall.c clone_fn_syscall 路径（4 锚点）")
+    else:
+        print("patch_atfork_on_clone: x64syscall.c clone_fn_syscall 路径已应用过，跳过")
+
+
 def patch(srcdir: str) -> int:
     patch_box64context(srcdir)
     patch_custommem(srcdir)
     patch_signals(srcdir)
     patch_x64syscall(srcdir)
+    patch_x64syscall_fn(srcdir)
     return 0
 
 
