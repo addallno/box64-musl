@@ -351,6 +351,9 @@ python3 $GITHUB_WORKSPACE/scripts/patch_mutex_deadowner_wrap.py $WORK/box64
 echo "==> 打 atfork-on-clone 补丁（raw clone fork语义 child 手动跑 box64 atfork handler 防 mutex_dyndump 死锁）"
 python3 $GITHUB_WORKSPACE/scripts/patch_atfork_on_clone.py $WORK/box64
 
+echo "==> 打 getDBSize-badprobe 补丁（槽值/垃圾 db 探测防御，修 rc=139 FreeRangeDynablock 野指针崩溃）"
+python3 $GITHUB_WORKSPACE/scripts/patch_getdb_probe.py $WORK/box64
+
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
 if [ -s "$MUSL_SYMS" ]; then
