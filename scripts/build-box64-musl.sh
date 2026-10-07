@@ -290,9 +290,16 @@ export MUSL_HEADER_SYMS_FILE=$MUSL_HEADER_SYMS
 export MUSL_HEADER_MACROS_FILE=$MUSL_HEADER_MACROS
 export MUSL_HEADER_DECLS_FILE=$MUSL_HEADER_DECLS
 
-# NOPATCH=true 时跳过全部自定义补丁（原版判别构建）
+# NOPATCH=true 时跳过行为修改类补丁（原版判别构建）；
+# musl 适配/日志/路径类属编译与取证基础设施，始终执行
+runbp() {
+  if [ "${NOPATCH:-false}" = "true" ]; then
+    echo "==> 跳过行为补丁 $1 (NOPATCH 原版判别)"
+  else
+    python3 $GITHUB_WORKSPACE/scripts/$1 $WORK/box64
+  fi
+}
 mkdir -p $WORK/include
-if [ "${NOPATCH:-false}" != "true" ]; then
 echo "==> 打 musl 补丁（isnanf -> isnan / fts 注入 / stub 头）"
 python3 $GITHUB_WORKSPACE/scripts/patch-musl-isnanf.py $WORK/box64 $WORK/include
 
@@ -300,19 +307,19 @@ echo "==> 打 syscallwrap 补丁（sendmmsg/shm，静态程序 DNS 依赖）"
 python3 $GITHUB_WORKSPACE/scripts/patch_syscalls.py $WORK/box64
 
 echo "==> 打 clone 修复补丁（绕过 musl clone() 包装层 EINVAL，带 [CLONERAW] 打点，验证后撤）"
-python3 $GITHUB_WORKSPACE/scripts/patch_clone_raw.py $WORK/box64
+runbp patch_clone_raw.py
 
 echo "==> 打 P0 修复补丁（arm64_lock release/casal flags/epoll 越界与溢出）"
-python3 $GITHUB_WORKSPACE/scripts/patch_p0fixes.py $WORK/box64
+runbp patch_p0fixes.py
 
 echo "==> 打 B5 补丁（cntfrq=0 校准兜底，保住硬件计数器）"
-python3 $GITHUB_WORKSPACE/scripts/patch_b5tsc.py $WORK/box64
-python3 $GITHUB_WORKSPACE/scripts/patch_jmptbl_acquire.py $WORK/box64
+runbp patch_b5tsc.py
+runbp patch_jmptbl_acquire.py
 echo "==> 打 munmap 守卫补丁（EXPORT munmap 按 mapallmem 标记拒拆内部页，B-12 修复）"
-python3 $GITHUB_WORKSPACE/scripts/patch_munmap_guard.py $WORK/box64
+runbp patch_munmap_guard.py
 
 echo "==> 打 maps 重读粒度补丁（库加载不再全量重读 /proc/self/maps，B2）"
-python3 $GITHUB_WORKSPACE/scripts/patch_b2maps.py $WORK/box64
+runbp patch_b2maps.py
 
 echo "==> 打版本 stamp 注入补丁（CMake git_head.h + banner，批次3 #15）"
 python3 $GITHUB_WORKSPACE/scripts/patch_stamp.py $WORK/box64
@@ -321,7 +328,7 @@ echo "==> 打 join 日志插桩补丁（pthread_join 失败错误码，steam 卡
 python3 $GITHUB_WORKSPACE/scripts/patch_joinlog.py $WORK/box64
 
 echo "==> 打 box32 分配族补丁（guest malloc/free 走 actual_*，32 位 steamcmd SIGABRT，B-14）"
-python3 $GITHUB_WORKSPACE/scripts/patch_b14_box32_alloc.py $WORK/box64
+runbp patch_b14_box32_alloc.py
 
 echo "==> 打路径映射补丁（BOX64_PATHMAP 前缀重写，通用 GNU 程序适配）"
 python3 $GITHUB_WORKSPACE/scripts/patch_pathmap.py $WORK/box64
@@ -339,25 +346,22 @@ echo "==> 打 showenv 补丁（-e/--show-env 打印 box64env）"
 python3 $GITHUB_WORKSPACE/scripts/patch_showenv.py $WORK/box64
 
 echo "==> 打 dlclose-log 补丁（my_dlclose 日志升 LOG_INFO 抓 handle）"
-python3 $GITHUB_WORKSPACE/scripts/patch_dlclose_log.py $WORK/box64
+runbp patch_dlclose_log.py
 
 echo "==> 打 malloc-lock-fork 补丁（atfork child 清 __malloc_lock 防 fork 死锁）"
-python3 $GITHUB_WORKSPACE/scripts/patch_malloc_lock_fork.py $WORK/box64
+runbp patch_malloc_lock_fork.py
 
 echo "==> 打 futex-eownerdied 补丁（robust owner 已死时注入 EOWNER_DIED 防 fork 子进程永挂）"
-python3 $GITHUB_WORKSPACE/scripts/patch_futex_eownerdied.py $WORK/box64
+runbp patch_futex_eownerdied.py
 
 echo "==> 打 mutex-deadowner 补丁（wrapped pthread_mutex_lock 层复位已死 owner 锁字防 fork 死锁）"
-python3 $GITHUB_WORKSPACE/scripts/patch_mutex_deadowner_wrap.py $WORK/box64
+runbp patch_mutex_deadowner_wrap.py
 
 echo "==> 打 atfork-on-clone 补丁（raw clone fork语义 child 手动跑 box64 atfork handler 防 mutex_dyndump 死锁）"
-python3 $GITHUB_WORKSPACE/scripts/patch_atfork_on_clone.py $WORK/box64
+runbp patch_atfork_on_clone.py
 
 echo "==> 打 getDBSize-badprobe 补丁（槽值/垃圾 db 探测防御，修 rc=139 FreeRangeDynablock 野指针崩溃）"
-python3 $GITHUB_WORKSPACE/scripts/patch_getdb_probe.py $WORK/box64
-else
-echo "==> NOPATCH=true：跳过全部自定义补丁（原版判别构建）"
-fi
+runbp patch_getdb_probe.py
 
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
