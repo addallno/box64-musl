@@ -290,8 +290,10 @@ export MUSL_HEADER_SYMS_FILE=$MUSL_HEADER_SYMS
 export MUSL_HEADER_MACROS_FILE=$MUSL_HEADER_MACROS
 export MUSL_HEADER_DECLS_FILE=$MUSL_HEADER_DECLS
 
-echo "==> 打 musl 补丁（isnanf -> isnan / fts 注入 / stub 头）"
+# NOPATCH=true 时跳过全部自定义补丁（原版判别构建）
 mkdir -p $WORK/include
+if [ "${NOPATCH:-false}" != "true" ]; then
+echo "==> 打 musl 补丁（isnanf -> isnan / fts 注入 / stub 头）"
 python3 $GITHUB_WORKSPACE/scripts/patch-musl-isnanf.py $WORK/box64 $WORK/include
 
 echo "==> 打 syscallwrap 补丁（sendmmsg/shm，静态程序 DNS 依赖）"
@@ -353,6 +355,9 @@ python3 $GITHUB_WORKSPACE/scripts/patch_atfork_on_clone.py $WORK/box64
 
 echo "==> 打 getDBSize-badprobe 补丁（槽值/垃圾 db 探测防御，修 rc=139 FreeRangeDynablock 野指针崩溃）"
 python3 $GITHUB_WORKSPACE/scripts/patch_getdb_probe.py $WORK/box64
+else
+echo "==> NOPATCH=true：跳过全部自定义补丁（原版判别构建）"
+fi
 
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""

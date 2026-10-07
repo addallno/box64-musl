@@ -15,6 +15,10 @@ on:
         description: '保留符号（不 strip，用于 gdb 崩溃定位）'
         type: boolean
         default: false
+      nopatch:
+        description: '禁用全部自定义补丁（原版判别构建）'
+        type: boolean
+        default: false
   schedule:
     # 批次3 #16：每周一构建 pin 基线（scripts/box64-pin.txt）+ main 对照，防上游漂移无声失败
     - cron: '0 3 * * 1'
@@ -61,6 +65,7 @@ jobs:
           BOX64_REF: ${{ steps.ref.outputs.ref }}
           STATICBUILD: ${{ steps.ref.outputs.static }}
           DEBUG_KEEP_SYM: ${{ inputs.debug }}
+          NOPATCH: ${{ inputs.nopatch }}
           MUSL_CACHE_DIR: /tmp/musl-cross-cache
           CCACHE_DIR: /tmp/ccache
         run: bash scripts/build-box64-musl.sh
