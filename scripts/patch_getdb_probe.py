@@ -11,9 +11,10 @@
 - 尾部 `*db = *(block[idx0]-8)`（native_next while 循环后）同样无防御。
 
 修复：
-- entry < 0x400000 或非 8 对齐（小枚举/0/野值）→ 不读 -8，*db=NULL，
+- entry < 0x400000 / > 0xffffffffffff（48位用户空间上界，拦 0x80... 垃圾大值）/ 非 8 对齐
+  （小枚举/0/野值）→ 不读 -8，*db=NULL，
   落到后续 default 检查 / native_next while 循环（原版预期路径）；
-- 读出的 db < 0x400000 或非 8 对齐（垃圾）→ fprintf 取证日志 + *db=NULL。
+- 读出的 db < 0x400000 / > 0xffffffffffff / 非 8 对齐（垃圾）→ fprintf 取证日志 + *db=NULL。
 
 哨兵：BOX64-BUILD: getDBSize-badprobe（幂等）
 依赖：jmptbl_acquire 已打时用 acquire 形态锚；未打（二分 nopatch）时用原版锚 fallback
@@ -51,8 +52,8 @@ JOBS = [
     {
         uintptr_t entry = (uintptr_t)__atomic_load_n(&box64_jmptbl3[idx3][idx2][idx1][idx0], __ATOMIC_ACQUIRE);
         // BOX64-BUILD: getDBSize-badprobe 槽值非合法指针（native_next 小枚举等）不读 -8，走 default/native_next 路径
-        *db = (entry >= 0x400000 && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
-        if(*db && (((uintptr_t)*db < 0x400000) || ((uintptr_t)*db & 7))) {
+        *db = (entry >= 0x400000 && entry <= 0xffffffffffffULL && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
+        if(*db && (((uintptr_t)*db < 0x400000) || ((uintptr_t)*db > 0xffffffffffffULL) || ((uintptr_t)*db & 7))) {
             fprintf(stderr, "[box64] getDBSize-badprobe head bad db=%p entry=%p addr=%p idx0=%d\\n",
                 (void*)*db, (void*)entry, (void*)addr, (int)idx0);
             *db = NULL;
@@ -62,8 +63,8 @@ JOBS = [
     {
         uintptr_t entry = (uintptr_t)__atomic_load_n(&box64_jmptbl2[idx2][idx1][idx0], __ATOMIC_ACQUIRE);
         // BOX64-BUILD: getDBSize-badprobe
-        *db = (entry >= 0x400000 && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
-        if(*db && (((uintptr_t)*db < 0x400000) || ((uintptr_t)*db & 7))) {
+        *db = (entry >= 0x400000 && entry <= 0xffffffffffffULL && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
+        if(*db && (((uintptr_t)*db < 0x400000) || ((uintptr_t)*db > 0xffffffffffffULL) || ((uintptr_t)*db & 7))) {
             fprintf(stderr, "[box64] getDBSize-badprobe head bad db=%p entry=%p addr=%p idx0=%d\\n",
                 (void*)*db, (void*)entry, (void*)addr, (int)idx0);
             *db = NULL;
@@ -84,8 +85,8 @@ JOBS = [
     // BOX64-BUILD: getDBSize-badprobe 槽值非合法指针（native_next 小枚举等）不读 -8，走 default/native_next 路径
     {
         uintptr_t entry = box64_jmptbl3[idx3][idx2][idx1][idx0];
-        *db = (entry >= 0x400000 && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
-        if(*db && (((uintptr_t)*db < 0x400000) || ((uintptr_t)*db & 7))) {
+        *db = (entry >= 0x400000 && entry <= 0xffffffffffffULL && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
+        if(*db && (((uintptr_t)*db < 0x400000) || ((uintptr_t)*db > 0xffffffffffffULL) || ((uintptr_t)*db & 7))) {
             fprintf(stderr, "[box64] getDBSize-badprobe head bad db=%p entry=%p addr=%p idx0=%d\\n",
                 (void*)*db, (void*)entry, (void*)addr, (int)idx0);
             *db = NULL;
@@ -94,8 +95,8 @@ JOBS = [
     #else
     {
         uintptr_t entry = box64_jmptbl2[idx2][idx1][idx0];
-        *db = (entry >= 0x400000 && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
-        if(*db && (((uintptr_t)*db < 0x400000) || ((uintptr_t)*db & 7))) {
+        *db = (entry >= 0x400000 && entry <= 0xffffffffffffULL && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
+        if(*db && (((uintptr_t)*db < 0x400000) || ((uintptr_t)*db > 0xffffffffffffULL) || ((uintptr_t)*db & 7))) {
             fprintf(stderr, "[box64] getDBSize-badprobe head bad db=%p entry=%p addr=%p idx0=%d\\n",
                 (void*)*db, (void*)entry, (void*)addr, (int)idx0);
             *db = NULL;
@@ -117,7 +118,7 @@ JOBS = [
                 """    // BOX64-BUILD: getDBSize-badprobe 尾部 -8 读同样 probe
     {
         uintptr_t entry = block[idx0];
-        dynablock_t* found = (entry >= 0x400000 && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
+        dynablock_t* found = (entry >= 0x400000 && entry <= 0xffffffffffffULL && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
         if(found && (((uintptr_t)found < 0x400000) || ((uintptr_t)found & 7))) {
             fprintf(stderr, "[box64] getDBSize-badprobe tail bad db=%p entry=%p addr=%p idx0=%d\\n",
                 (void*)found, (void*)entry, (void*)addr, (int)idx0);
