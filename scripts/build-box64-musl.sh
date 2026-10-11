@@ -314,7 +314,10 @@ python3 $GITHUB_WORKSPACE/scripts/patch_p0fixes.py $WORK/box64
 
 echo "==> 打 B5 补丁（cntfrq=0 校准兜底，保住硬件计数器）"
 python3 $GITHUB_WORKSPACE/scripts/patch_b5tsc.py $WORK/box64
-runbp patch_jmptbl_acquire.py
+# 2026-10-11 二分判别坐实：patch_jmptbl_acquire 引入 C/D 型登录中寄存器污染崩溃
+# （RAX=x64pc lock xadd、RBP=0xffXX0000 malloc_usable_size，5轮 0 复现 vs 含它 4轮 2崩）；
+# 其修的竞态 5 轮未复发，永久搁置（如需恢复取消注释并观察）
+# runbp patch_jmptbl_acquire.py
 echo "==> 打 munmap 守卫补丁（EXPORT munmap 按 mapallmem 标记拒拆内部页，B-12 修复）"
 python3 $GITHUB_WORKSPACE/scripts/patch_munmap_guard.py $WORK/box64
 
