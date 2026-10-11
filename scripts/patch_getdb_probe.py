@@ -16,7 +16,7 @@
 - 读出的 db < 0x400000 或非 8 对齐（垃圾）→ fprintf 取证日志 + *db=NULL。
 
 哨兵：BOX64-BUILD: getDBSize-badprobe（幂等）
-依赖：patch_jmptbl_acquire.py 先执行（锚为 acquire 应用后形态）
+依赖：jmptbl_acquire 已打时用 acquire 形态锚；未打（二分 nopatch）时用原版锚 fallback
 用法：python3 patch_getdb_probe.py <box64源码目录>
 退出码：0=成功/已幂等，1=锚点缺失
 """
@@ -25,12 +25,15 @@ from pathlib import Path
 
 SENTINEL = "BOX64-BUILD: getDBSize-badprobe"
 
-# (相对路径, 锚文本, 替换文本)
+# (相对路径, [(锚文本, 替换文本), ...] 按序尝试第一个匹配)
 JOBS = [
     # ---- 1) getDBSize 头部：entry 合法性 probe + 垃圾 db 防御 ----
     (
         "src/custommem.c",
-        """    #ifdef JMPTABL_START4
+        [
+            # 1a) jmptbl_acquire 已应用形态
+            (
+                """    #ifdef JMPTABL_START4
     // BOX64-BUILD: jmptbl-acquire entry acquire 后再取 -8 处的 db 指针
     {
         uintptr_t entry = (uintptr_t)__atomic_load_n(&box64_jmptbl3[idx3][idx2][idx1][idx0], __ATOMIC_ACQUIRE);
@@ -43,7 +46,7 @@ JOBS = [
     }
     #endif
 """,
-        """    #ifdef JMPTABL_START4
+                """    #ifdef JMPTABL_START4
     // BOX64-BUILD: jmptbl-acquire entry acquire 后再取 -8 处的 db 指针
     {
         uintptr_t entry = (uintptr_t)__atomic_load_n(&box64_jmptbl3[idx3][idx2][idx1][idx0], __ATOMIC_ACQUIRE);
@@ -68,14 +71,50 @@ JOBS = [
     }
     #endif
 """,
+            ),
+            # 1b) 原版（jmptbl_acquire 未打）形态 fallback
+            (
+                """    #ifdef JMPTABL_START4
+    *db = *(dynablock_t**)(box64_jmptbl3[idx3][idx2][idx1][idx0]- sizeof(void*));
+    #else
+    *db = *(dynablock_t**)(box64_jmptbl2[idx2][idx1][idx0]- sizeof(void*));
+    #endif
+""",
+                """    #ifdef JMPTABL_START4
+    // BOX64-BUILD: getDBSize-badprobe 槽值非合法指针（native_next 小枚举等）不读 -8，走 default/native_next 路径
+    {
+        uintptr_t entry = box64_jmptbl3[idx3][idx2][idx1][idx0];
+        *db = (entry >= 0x400000 && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
+        if(*db && (((uintptr_t)*db < 0x400000) || ((uintptr_t)*db & 7))) {
+            fprintf(stderr, "[box64] getDBSize-badprobe head bad db=%p entry=%p addr=%p idx0=%d\\n",
+                (void*)*db, (void*)entry, (void*)addr, (int)idx0);
+            *db = NULL;
+        }
+    }
+    #else
+    {
+        uintptr_t entry = box64_jmptbl2[idx2][idx1][idx0];
+        *db = (entry >= 0x400000 && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
+        if(*db && (((uintptr_t)*db < 0x400000) || ((uintptr_t)*db & 7))) {
+            fprintf(stderr, "[box64] getDBSize-badprobe head bad db=%p entry=%p addr=%p idx0=%d\\n",
+                (void*)*db, (void*)entry, (void*)addr, (int)idx0);
+            *db = NULL;
+        }
+    }
+    #endif
+""",
+            ),
+        ],
     ),
     # ---- 2) getDBSize 尾部：while 后的 -8 读同样防御 ----
     (
         "src/custommem.c",
-        """    *db = *(dynablock_t**)(block[idx0]- sizeof(void*));
+        [
+            (
+                """    *db = *(dynablock_t**)(block[idx0]- sizeof(void*));
     return (addr&~JMPTABLE_MASK0)+idx0+1;
 """,
-        """    // BOX64-BUILD: getDBSize-badprobe 尾部 -8 读同样 probe
+                """    // BOX64-BUILD: getDBSize-badprobe 尾部 -8 读同样 probe
     {
         uintptr_t entry = block[idx0];
         dynablock_t* found = (entry >= 0x400000 && !(entry & 7)) ? *(dynablock_t**)(entry - sizeof(void*)) : NULL;
@@ -88,6 +127,8 @@ JOBS = [
     }
     return (addr&~JMPTABLE_MASK0)+idx0+1;
 """,
+            ),
+        ],
     ),
 ]
 
@@ -97,21 +138,29 @@ def main() -> None:
         print("用法: patch_getdb_probe.py <box64源码目录>", file=sys.stderr)
         sys.exit(2)
     srcdir = Path(sys.argv[1])
-    for i, (rel, anchor, repl) in enumerate(JOBS, 1):
+    for i, (rel, variants) in enumerate(JOBS, 1):
         p = srcdir / rel
         if not p.is_file():
             print(f"文件不存在: {p}", file=sys.stderr)
             sys.exit(1)
         s = p.read_text(encoding="utf-8")
-        if anchor in s:
-            s = s.replace(anchor, repl, 1)
+        result = None  # "patched" | "skipped"
+        for anchor, repl in variants:
+            if anchor in s:
+                s = s.replace(anchor, repl, 1)
+                result = "patched"
+                break
+            if repl in s:
+                result = "skipped"
+                break
+        if result is None:
+            print(f"patch_getdb_probe: {rel} job{i} 锚点缺失（acquire/原版形态均未匹配）", file=sys.stderr)
+            sys.exit(1)
+        if result == "patched":
             p.write_text(s, encoding="utf-8")
             print(f"patch_getdb_probe: {rel} job{i} 已打补丁")
-        elif repl in s:
-            print(f"patch_getdb_probe: {rel} job{i} 已应用过，跳过")
         else:
-            print(f"patch_getdb_probe: {rel} job{i} 锚点缺失", file=sys.stderr)
-            sys.exit(1)
+            print(f"patch_getdb_probe: {rel} job{i} 已应用过，跳过")
     sys.exit(0)
 
 
