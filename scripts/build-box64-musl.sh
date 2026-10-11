@@ -349,16 +349,16 @@ echo "==> 打 dlclose-log 补丁（my_dlclose 日志升 LOG_INFO 抓 handle）"
 runbp patch_dlclose_log.py
 
 echo "==> 打 malloc-lock-fork 补丁（atfork child 清 __malloc_lock 防 fork 死锁）"
-runbp patch_malloc_lock_fork.py
+python3 $GITHUB_WORKSPACE/scripts/patch_malloc_lock_fork.py $WORK/box64
 
 echo "==> 打 futex-eownerdied 补丁（robust owner 已死时注入 EOWNER_DIED 防 fork 子进程永挂）"
-runbp patch_futex_eownerdied.py
+python3 $GITHUB_WORKSPACE/scripts/patch_futex_eownerdied.py $WORK/box64
 
 echo "==> 打 mutex-deadowner 补丁（wrapped pthread_mutex_lock 层复位已死 owner 锁字防 fork 死锁）"
-runbp patch_mutex_deadowner_wrap.py
+python3 $GITHUB_WORKSPACE/scripts/patch_mutex_deadowner_wrap.py $WORK/box64
 
 echo "==> 打 atfork-on-clone 补丁（raw clone fork语义 child 手动跑 box64 atfork handler 防 mutex_dyndump 死锁）"
-runbp patch_atfork_on_clone.py
+python3 $GITHUB_WORKSPACE/scripts/patch_atfork_on_clone.py $WORK/box64
 
 echo "==> 打 getDBSize-badprobe 补丁（槽值/垃圾 db 探测防御，修 rc=139 FreeRangeDynablock 野指针崩溃）"
 runbp patch_getdb_probe.py
