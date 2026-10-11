@@ -346,7 +346,7 @@ echo "==> 打 showenv 补丁（-e/--show-env 打印 box64env）"
 python3 $GITHUB_WORKSPACE/scripts/patch_showenv.py $WORK/box64
 
 echo "==> 打 dlclose-log 补丁（my_dlclose 日志升 LOG_INFO 抓 handle）"
-runbp patch_dlclose_log.py
+python3 $GITHUB_WORKSPACE/scripts/patch_dlclose_log.py $WORK/box64
 
 echo "==> 打 malloc-lock-fork 补丁（atfork child 清 __malloc_lock 防 fork 死锁）"
 python3 $GITHUB_WORKSPACE/scripts/patch_malloc_lock_fork.py $WORK/box64
@@ -361,7 +361,7 @@ echo "==> 打 atfork-on-clone 补丁（raw clone fork语义 child 手动跑 box6
 python3 $GITHUB_WORKSPACE/scripts/patch_atfork_on_clone.py $WORK/box64
 
 echo "==> 打 getDBSize-badprobe 补丁（槽值/垃圾 db 探测防御，修 rc=139 FreeRangeDynablock 野指针崩溃）"
-runbp patch_getdb_probe.py
+python3 $GITHUB_WORKSPACE/scripts/patch_getdb_probe.py $WORK/box64
 
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
