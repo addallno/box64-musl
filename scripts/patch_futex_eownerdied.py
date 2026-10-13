@@ -12,8 +12,9 @@ tid=31514、0x80002CDE tid=11486、0x80005F29 tid=24361 三轮同款死锁）。
 
 改动（仅 src/emu/x64syscall.c，双路径各插一段，模式一致）：
   - 前 30 次 s==202 打 LOG_NONE 无条件 trace（op/val/uaddr/gettid，定位用）
-  - 拦截条件：FUTEX_WAIT(cmd=0) + WAITERS 位 + owner tid>0x1000 且非本线程
-    + /proc/self/task/<owner> 不存在（owner 已死，活 owner 不受影响）
+  - 拦截条件：FUTEX_WAIT(cmd=0) + WAITERS 位 + owner 非本线程
+    + /proc/self/task/<owner> 不存在（owner 已死，活 owner 不受影响；
+    不设 tid>0x1000 下限——fork child 实测卡 val=0x80000003 owner=3 小值死锁）
   - 动作：按内核 handle_futex_death 语义改写锁字（保留 WAITERS、tid 清零、
     置 FUTEX_OWNER_DIED），返回 -EOWNERDEAD(=内核 EOWNER_DIED 130)，
     令 guest glibc 走 robust 恢复接管路径而非永久等待。
@@ -72,7 +73,9 @@ def patch(srcdir: str) -> int:
         "            uint32_t fval = R_{VAL};\n"
         "            if(fval & 0x80000000) {\n"
         "                uint32_t fowner = fval & 0x3FFFFFFF;\n"
-        "                if(fowner > 0x1000 && fowner != (uint32_t)GetTID()) {\n"
+        "                // BOX64-BUILD: 低小值 owner（实测 fork child 卡 val=0x80000003 owner=3）\n"
+        "                // 亦可能是死 owner，统一由 /proc/self/task 存活判定，不再按 >0x1000 拦断\n"
+        "                if(fowner != (uint32_t)GetTID()) {\n"
         "                    char ftask[64];\n"
         "                    snprintf(ftask, sizeof(ftask), \"/proc/self/task/%u\", fowner);\n"
         "                    if(access(ftask, F_OK)) {\n"
