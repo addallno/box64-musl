@@ -17,10 +17,11 @@ gdb 栈实锤真实路径：
   1) src/wrapped/wrappedlibpthread_private.h：
      GO(pthread_mutex_lock/__pthread_mutex_lock) → GOM(...)，静态映射到 my_ 实现
      （非 STATICBUILD 下 GO/GOM 展开相同，行为不变）。
-  2) src/wrapped/wrappedlibpthread.c（STATICBUILD extern 块内、wrappedlib_init.h 之前）：
+     2) src/wrapped/wrappedlibpthread.c（STATICBUILD extern 块内、wrappedlib_init.h 之前）：
      my_pthread_mutex_lock：转发宿主前扫描 mutex offset 0..16，WAITERS|owner 且
-     owner 不在 /proc/self/task（已死）→ 按 BOX64_MUTEX_CAS=1 才 CAS 复位（诊断开关）；
-     另加 md-enter 入口诊断（限20条，child pid 变化重置）。
+     owner 不在 /proc/self/task（已死）→ **无条件 CAS 复位 + FUTEX_WAKE**（2026-10-13
+     去掉原 BOX64_MUTEX_CAS 诊断门禁：轮52/53 抓卡实锤子进程 futex val=0x80000003
+     owner死永挂，门禁挡住修复透传宿主致死锁）；另加 md-enter 入口诊断（限20条）。
      新增 EXPORT box64_fix_dead_mutex(m)：同扫描但**无条件 CAS 复位 + WAKE**，
      供 cond 桥入口预修复（宿主 relock 不经 wrap，只能在进桥前修锁字）。
   3) src/libtools/threads.c：my_pthread_cond_timedwait / my_pthread_cond_wait /
@@ -110,13 +111,14 @@ def patch(srcdir: str) -> int:
             "                               off, fowner, v, GetTID());\n"
             "                if(mdn > 0) write(2, mdbuf, (size_t)mdn);\n"
             "            }\n"
-            "            const char* mdcas = getenv(\"BOX64_MUTEX_CAS\");\n"
-            "            if(mdcas && mdcas[0] == '1') {\n"
-            "                uint32_t expect = v;\n"
-            "                if(__atomic_compare_exchange_n(w, &expect, 0, 0, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)) {\n"
-            "                    syscall(SYS_futex, (void*)w, FUTEX_WAKE_PRIVATE, 2147483647, NULL, NULL, 0);\n"
-            "                    return 0;\n"
-            "                }\n"
+            "            // 2026-10-13 去掉 BOX64_MUTEX_CAS 门禁：轮52/53 抓卡实锤\n"
+            "            // 子进程 futex val=0x80000003(WAITERS|owner=3) 永挂——\n"
+            "            // 检测到死 owner 却因诊断开关未开而透传宿主。无条件 CAS+WAKE\n"
+            "            // （与 box64_fix_dead_mutex 同策略，普通 mutex_lock 路径也修）\n"
+            "            uint32_t expect = v;\n"
+            "            if(__atomic_compare_exchange_n(w, &expect, 0, 0, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)) {\n"
+            "                syscall(SYS_futex, (void*)w, FUTEX_WAKE_PRIVATE, 2147483647, NULL, NULL, 0);\n"
+            "                return 0;\n"
             "            }\n"
             "        }\n"
             "    }\n"
