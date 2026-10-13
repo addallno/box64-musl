@@ -14,8 +14,10 @@ atfork_child_custommem/atfork_child_dynarec_prot。
 steamcmd 永不登录。实测死锁锁字 [0x2, 0x8000502e, 0x1, 0] 即继承脏态。
 
 改动（4 文件）：
-  - box64context.c：新增聚合函数 box64_atfork_child_all()（日志 + 依次调
-    本文件 static atfork_child_box64context 与两个 extern wrapper）
+  - box64context.c：新增聚合函数 box64_atfork_child_all()（**开头先清
+    musl __malloc_lock=0**——必须在 fprintf/fopen 之前，否则 child 继承
+    脏锁后 IO 的 malloc 先卡死 __lock；日志 + 依次调本文件 static
+    atfork_child_box64context 与两个 extern wrapper）
   - custommem.c：新增 wrapper box64_atfork_child_custommem
   - libtools/signals.c：新增 wrapper box64_atfork_child_dynarec_prot
   - emu/x64syscall.c：case 56 两处（x64Syscall_linux / my_syscall）所有
@@ -82,6 +84,11 @@ def patch_box64context(srcdir):
         "    // my_context mutex（mutex_dyndump 等）脏锁字后 dynarec\n"
         "    // internalDBGetBlock futex 永等。此处手动执行 box64 关键 atfork\n"
         "    // child handler（内容与 musl 链注册的一致，见各调用点）。\n"
+        "    // 清 musl __malloc_lock 必须在任何可能 malloc 的 IO 之前——\n"
+        "    // child 继承脏锁后 fprintf/fopen 的 malloc 会先卡死 __lock\n"
+        "    //（实测轮65-67：atfork-child.log 空、child 卡 __lock 0x80000002）\n"
+        "    extern volatile int __malloc_lock;\n"
+        "    __malloc_lock = 0;\n"
         "    fprintf(stderr, \"[box64] atfork-child: raw clone child, reinit locks\\n\");\n"
         "    {\n"
         "        // 独立文件日志：stderr 可能被 fork/exec/dup2 吞掉，文件 append 保底取证\n"
