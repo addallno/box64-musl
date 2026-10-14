@@ -371,6 +371,9 @@ python3 $GITHUB_WORKSPACE/scripts/patch_dlclose_guard.py $WORK/box64
 echo "==> 打 nativelr 补丁（SIGSEGV handler dump native pc/lr/x0-x7，定位型B __lock caller）"
 python3 $GITHUB_WORKSPACE/scripts/patch_nativelr.py $WORK/box64
 
+echo "==> 打 sched-cpualloc 补丁（box64 实现 __sched_cpualloc/free，修 Steam 启动 NULL 解引用崩溃）"
+python3 $GITHUB_WORKSPACE/scripts/patch_sched_cpualloc.py $WORK/box64
+
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
 if [ -s "$MUSL_SYMS" ]; then
