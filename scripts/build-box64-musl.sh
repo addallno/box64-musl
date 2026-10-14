@@ -374,6 +374,9 @@ python3 $GITHUB_WORKSPACE/scripts/patch_nativelr.py $WORK/box64
 echo "==> 打 sched-cpualloc 补丁（box64 实现 __sched_cpualloc/free，修 Steam 启动 NULL 解引用崩溃）"
 python3 $GITHUB_WORKSPACE/scripts/patch_sched_cpualloc.py $WORK/box64
 
+echo "==> 打 gai-free-compat 补丁（fallback 链魔数 + freeaddrinfo hook，修 musl 池版反查野指针 __lock 崩溃）"
+python3 $GITHUB_WORKSPACE/scripts/patch_gai_free_compat.py $WORK/box64
+
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
 if [ -s "$MUSL_SYMS" ]; then
