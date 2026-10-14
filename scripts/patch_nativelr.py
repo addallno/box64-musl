@@ -19,11 +19,11 @@ INSERT = (
     '        // ' + SENTINEL + '：native aarch64 regs（gregs: x0-x30,sp,pc,pstate）\n'
     '        printf_log(LOG_INFO, "%04d|native-crash pc=%p lr=%p x0=%p x1=%p x2=%p x3=%p x4=%p x5=%p x6=%p x7=%p // ' + SENTINEL + '\\n",\n'
     '            GetTID(),\n'
-    '            (void*)p->uc_mcontext.gregs[32], (void*)p->uc_mcontext.gregs[30],\n'
-    '            (void*)p->uc_mcontext.gregs[0], (void*)p->uc_mcontext.gregs[1],\n'
-    '            (void*)p->uc_mcontext.gregs[2], (void*)p->uc_mcontext.gregs[3],\n'
-    '            (void*)p->uc_mcontext.gregs[4], (void*)p->uc_mcontext.gregs[5],\n'
-    '            (void*)p->uc_mcontext.gregs[6], (void*)p->uc_mcontext.gregs[7]);\n'
+    '            (void*)p->uc_mcontext.regs[32], (void*)p->uc_mcontext.regs[30],\n'
+    '            (void*)p->uc_mcontext.regs[0], (void*)p->uc_mcontext.regs[1],\n'
+    '            (void*)p->uc_mcontext.regs[2], (void*)p->uc_mcontext.regs[3],\n'
+    '            (void*)p->uc_mcontext.regs[4], (void*)p->uc_mcontext.regs[5],\n'
+    '            (void*)p->uc_mcontext.regs[6], (void*)p->uc_mcontext.regs[7]);\n'
 )
 
 
