@@ -29,8 +29,11 @@ C_INSERT_MACRO = (
 C_ANCHOR_DECL = "static int box64_gai_native_broken = 0;\n"
 C_INSERT_DECL = (
     "// " + SENTINEL + "：freeaddrinfo hook（musl 池版反查兼容）\n"
-    "EXPORT void my_freeaddrinfo(struct addrinfo* res)\n"
+    "EXPORT void my_freeaddrinfo(x64emu_t* emu, struct addrinfo* res)\n"
     "{\n"
+    "    // GOM(vFEp) wrapper 以 (emu,res) 调本函数——emu 必须占首参，\n"
+    "    // 否则实现把 emu 当 res 读（轮94-99 6/6 崩 freeaddrinfo 即此错位）\n"
+    "    (void)emu;\n"
     "    // musl freeaddrinfo 假定链来自其 aibuf 池（+0x50 short 反查块头\n"
     "    // 加锁 refcount）；fallback 的 calloc 裸链命中高位魔数时自释放\n"
     "    if (res && (res->ai_flags & BOX64_GAI_FB_FLAG)) {\n"
