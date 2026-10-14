@@ -19,10 +19,16 @@ TARGET_H = "src/wrapped/wrappedlibc_private.h"
 H_OLD = "GO(freeaddrinfo, vFp)\n"
 H_NEW = "GOM(freeaddrinfo, vFEp) // " + SENTINEL + "\n"
 
+# 宏定义须在 box64_dns_fallback 之前（fallback 内 ai_flags 使用点在前）
+C_ANCHOR_FB = "// native 不可用时的解析组链（calloc 组装，与 native freeaddrinfo 的 musl free 配对）\n"
+C_INSERT_MACRO = (
+    "// " + SENTINEL + "：fallback 链魔数（高位标记，freeaddrinfo hook 识别）\n"
+    "#define BOX64_GAI_FB_FLAG 0x80000000\n"
+)
+
 C_ANCHOR_DECL = "static int box64_gai_native_broken = 0;\n"
 C_INSERT_DECL = (
-    "// " + SENTINEL + "：fallback 链魔数标记 + freeaddrinfo hook（musl 池版反查兼容）\n"
-    "#define BOX64_GAI_FB_FLAG 0x80000000\n"
+    "// " + SENTINEL + "：freeaddrinfo hook（musl 池版反查兼容）\n"
     "EXPORT void my_freeaddrinfo(struct addrinfo* res)\n"
     "{\n"
     "    // musl freeaddrinfo 假定链来自其 aibuf 池（+0x50 short 反查块头\n"
@@ -102,6 +108,8 @@ def main():
     if SENTINEL in csrc and "my_freeaddrinfo" in csrc:
         print(f"patch_gai_free_compat: wrappedlibc.c 已应用过，跳过 ({cpath})")
         return
+    csrc = replace_once(csrc, C_ANCHOR_FB, C_INSERT_MACRO + C_ANCHOR_FB,
+                        "wrappedlibc.c fallback宏")
     csrc = replace_once(csrc, C_ANCHOR_DECL, C_INSERT_DECL + C_ANCHOR_DECL,
                         "wrappedlibc.c decl")
     csrc = replace_once(csrc, C_ANCHOR_FLAGS, C_REPLACE_FLAGS, "wrappedlibc.c flags")
