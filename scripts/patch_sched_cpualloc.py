@@ -58,8 +58,8 @@ def main():
             print(f"patch_sched_cpualloc: {PRIV_REL} 锚点命中 alloc={n1} free={n2}（期望各1）",
                   file=sys.stderr)
             sys.exit(2)
-        src = src.replace(PRIV_ANCHOR_ALLOC, "GOM(__sched_cpualloc, pEL)  // " + SENTINEL + "\n", 1)
-        src = src.replace(PRIV_ANCHOR_FREE, "GOM(__sched_cpufree, vEp)\n", 1)
+        src = src.replace(PRIV_ANCHOR_ALLOC, "GOM(__sched_cpualloc, pFEL)  // " + SENTINEL + "\n", 1)
+        src = src.replace(PRIV_ANCHOR_FREE, "GOM(__sched_cpufree, vFEp)\n", 1)
         with open(priv, "w", encoding="utf-8") as f:
             f.write(src)
         print(f"patch_sched_cpualloc: 已应用 GO→GOM -> {priv}")
