@@ -73,13 +73,15 @@ def patch(srcdir: str) -> int:
             "int GetTID();\n"
             "EXPORT int my_pthread_mutex_lock(void* m)\n"
             "{\n"
-            "    // 入口诊断：确认 wrap 表生效（child pid 变化时重置计数，fork 后必打前20次）\n"
+            "    // 入口诊断：确认 wrap 表生效（限20条）；BOX64_MUTEX_DEBUG=1 才打\n"
             "    {\n"
             "        static pid_t mdpid = 0;\n"
             "        static volatile int mdent = 0;\n"
+            "        static int mdon = -1;\n"
+            "        if(mdon < 0) { const char* e = getenv(\"BOX64_MUTEX_DEBUG\"); mdon = (e && *e && *e != '0') ? 1 : 0; }\n"
             "        pid_t mdcur = getpid();\n"
             "        if(mdcur != mdpid) { mdpid = mdcur; mdent = 0; }\n"
-            "        if(mdent < 20) {\n"
+            "        if(mdon && mdent < 20) {\n"
             "            ++mdent;\n"
             '            char mdb[112];\n'
             '            int mdn = snprintf(mdb, sizeof(mdb), "md-enter pid=%d #%d v0=0x%x // ' + SENTINEL + '\\n",\n'
