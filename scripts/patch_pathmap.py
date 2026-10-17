@@ -259,6 +259,9 @@ uint8_t box64_pathmask32(uint32_t nr)
         {99, 1},       // statfs
         {106, 1},      // stat
         {107, 1},      // lstat
+        {195, 1},      // stat64（i386 glibc 实际走此，breakpad 32位 dumps 检查漏映射致 Fatal）
+        {196, 1},      // lstat64（i386）
+        {300, 2},      // fstatat64（i386, dirfd,path,buf,flags → path 在 ECX）
         {271, 1},      // utimes
         {292, 1},      // inotify_add_watch
         {295, 2},      // openat
