@@ -239,6 +239,12 @@ def _patch32(srcdir):
             f.write(w32h)
         print("patch_pathmap2: 已应用 -> wrapper32.h(iEEpu 声明)")
 
+    # wrapped32/wrappedlibc.c 需引入 box64_pathmap 声明（否则隐式 int 编译错）
+    if '#include "pathmap.h"' not in libc32:
+        libc32 = apply(libc32, '#include "cpumask.h"\n',
+                       '#include "cpumask.h"\n#include "pathmap.h"\n',
+                       1, "cpumask include", "wrapped32/wrappedlibc.c")
+
     with open(p_libc32, "w", encoding="utf-8") as f:
         f.write(libc32)
     with open(p_priv32, "w", encoding="utf-8") as f:
