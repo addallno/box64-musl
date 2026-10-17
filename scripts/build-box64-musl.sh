@@ -377,6 +377,23 @@ python3 $GITHUB_WORKSPACE/scripts/patch_sched_cpualloc.py $WORK/box64
 echo "==> 打 gai-free-compat 补丁（fallback 链魔数 + freeaddrinfo hook，修 musl 池版反查野指针 __lock 崩溃）"
 python3 $GITHUB_WORKSPACE/scripts/patch_gai_free_compat.py $WORK/box64
 
+echo "==> [自检] patch 链关键不变量（防锚文本漂移/顺序破坏悄悄失效）"
+CHECK_SRC="$WORK/box64/src/wrapped/wrappedlibc.c"
+CHECK_HDR="$WORK/box64/src/wrapped/wrappedlibc_private.h"
+fail_check() { echo "自检失败: $1" >&2; exit 1; }
+grep -q 'GOM(freeaddrinfo, vFEp)' "$CHECK_HDR" || fail_check "GOM(freeaddrinfo, vFEp) 不在 priv.h"
+grep -q 'my_freeaddrinfo(x64emu_t\* emu, struct addrinfo\* res)' "$CHECK_SRC" \
+  || fail_check "my_freeaddrinfo 缺 emu 首参（GOM vFEp 错位必崩回归）"
+grep -q '#define BOX64_GAI_FB_FLAG' "$CHECK_SRC" || fail_check "BOX64_GAI_FB_FLAG 宏缺失"
+DEF_LINE=$(grep -n '#define BOX64_GAI_FB_FLAG' "$CHECK_SRC" | head -1 | cut -d: -f1)
+USE_LINE=$(grep -n 'ai->ai_flags = oflags | BOX64_GAI_FB_FLAG' "$CHECK_SRC" | head -1 | cut -d: -f1)
+[ -n "$DEF_LINE" ] && [ -n "$USE_LINE" ] && [ "$DEF_LINE" -lt "$USE_LINE" ] \
+  || fail_check "魔数宏定义未在 fallback 使用点之前（编译会 undeclared）"
+grep -q 'box64_dns_fallback' "$CHECK_SRC" || fail_check "patch_gai 注入的 fallback 缺失（链序被破坏）"
+grep -q 'EXPORT void\* my___sched_cpualloc(x64emu_t\* emu' "$CHECK_SRC" || fail_check "my___sched_cpualloc 缺失或无 emu"
+grep -q 'BOX64_MUTEX_DEBUG' "$WORK/box64/src/wrapped/wrappedlibpthread.c" || fail_check "md-enter 未接 BOX64_MUTEX_DEBUG 门控"
+echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok"
+
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
 if [ -s "$MUSL_SYMS" ]; then
