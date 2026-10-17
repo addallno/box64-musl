@@ -26,9 +26,9 @@ def apply_once(src: str, anchor: str, insert: str, name: str) -> str:
 
 
 def probe(tag: str) -> str:
-    return (
-        f'\n    write(2, "[{SENTINEL}] {tag}\\n", {len(f"[{SENTINEL}] {tag}\\n")});'
-    )
+    # C 源里 \n 转义为 1 字节，长度须按真实字节数（文本+1），否则多写尾随 NUL
+    text = f"[{SENTINEL}] {tag}\n"
+    return f'\n    write(2, "{text[:-1]}\\n", {len(text)});'
 
 
 def patch(root: str) -> int:
@@ -65,7 +65,40 @@ def patch(root: str) -> int:
     with open(ctx, "w", encoding="utf-8") as f:
         f.write(x)
 
-    print("patch_box32_probe: 完成（T1,T3-T8）")
+    # init_custommem_helper 内部细分（T3..T4 之间太长，二分到具体子调用）
+    cm = os.path.join(root, "src", "custommem.c")
+    with open(cm, "r", encoding="utf-8") as f:
+        m = f.read()
+    if "#include <unistd.h>" not in m:
+        m = apply_once(m, "#include <stdlib.h>\n", "#include <unistd.h>\n", "unistd-cm")
+    m = apply_once(
+        m,
+        'pthread_atfork(NULL, NULL, atfork_child_custommem);',
+        probe("C1 atfork"),
+        "C1",
+    )
+    m = apply_once(
+        m,
+        '// init mapallmem list\n    mapallmem = rbtree_init("mapallmem");',
+        probe("C2 mapallmem"),
+        "C2",
+    )
+    m = apply_once(
+        m,
+        '    // Load current MMap\n',
+        probe("C3 before loadProtection"),
+        "C3",
+    )
+    m = apply_once(
+        m,
+        '    loadProtectionFromMap();\n    reserveHighMem();',
+        '    loadProtectionFromMap();\n    reserveHighMem();' + probe("C4 after reserveHighMem"),
+        "C4",
+    )
+    with open(cm, "w", encoding="utf-8") as f:
+        f.write(m)
+
+    print("patch_box32_probe: 完成（T1,T3-T8 + C1-C4）")
     return 0
 
 
