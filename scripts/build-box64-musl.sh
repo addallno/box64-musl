@@ -380,6 +380,9 @@ python3 $GITHUB_WORKSPACE/scripts/patch_gai_free_compat.py $WORK/box64
 echo "==> 打 box32-probe 补丁（NewBox64Context 各步 write(2) 打点，二分 32-bit ELF 启动崩溃）"
 python3 $GITHUB_WORKSPACE/scripts/patch_box32_probe.py $WORK/box64
 
+echo "==> 打 box32-mmap-guard 补丁（box32_dynarec_mmap 早期 mapallmem=NULL fallback，修 32-bit 启动 SIGSEGV）"
+python3 $GITHUB_WORKSPACE/scripts/patch_box32_mmap_guard.py $WORK/box64
+
 echo "==> [自检] patch 链关键不变量（防锚文本漂移/顺序破坏悄悄失效）"
 CHECK_SRC="$WORK/box64/src/wrapped/wrappedlibc.c"
 CHECK_HDR="$WORK/box64/src/wrapped/wrappedlibc_private.h"
