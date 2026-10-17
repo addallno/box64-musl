@@ -73,6 +73,24 @@ def patch(root: str) -> int:
         m = apply_once(m, "#include <stdlib.h>\n", "#include <unistd.h>\n", "unistd-cm")
     m = apply_once(
         m,
+        'cur_brk = dlsym(RTLD_NEXT, "__curbrk");',
+        probe("C0a dlsym"),
+        "C0a",
+    )
+    m = apply_once(
+        m,
+        'memprot_guest_dyn = rbtree_init("memprot_guest_dyn");',
+        probe("C0b rbtree4"),
+        "C0b",
+    )
+    m = apply_once(
+        m,
+        'lockaddress = kh_init(lockaddress);',
+        probe("C0c jmptbl"),
+        "C0c",
+    )
+    m = apply_once(
+        m,
         'pthread_atfork(NULL, NULL, atfork_child_custommem);',
         probe("C1 atfork"),
         "C1",
