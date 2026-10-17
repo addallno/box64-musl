@@ -159,25 +159,13 @@ def _patch32(srcdir):
         print("patch_pathmap2: wrapped32 已应用过，跳过")
         return
 
-    # stat 家族（32位函数体首行是 struct stat64 st;，与64位的 (void)emu 行不同；
-    # my32___fxstatat64 为双空格 `struct  stat64` 特例）
-    def stat_job32(sig, var, first="    struct stat64 st;\n"):
+    # stat 家族：锚只要求签名+`{\n`（宽容锚，兼容上游 stat64/stat 两种体版本，
+    # pathmap 行插在函数体首行，先于任何 stat 调用即可）
+    def stat_job32(sig, var):
         head = sig + "{\n"
-        old = head + first
-        new = (
-            head
-            + first
-            + f"    {var} = (void*)box64_pathmap((const char*){var});  // {SENTINEL}\n"
-        )
-        return (old, new)
+        new = head + f"    {var} = (void*)box64_pathmap((const char*){var});  // {SENTINEL}\n"
+        return (head, new)
 
-    # 诊断：锚不中时 dump CI 真实函数体（BOX64-BUILD: pathmap2-dbg）
-    _sig = "EXPORT int my32___xstat(x64emu_t* emu, int v, void* path, void* buf)\n{\n"
-    if libc32.count(_sig + "    struct stat64 st;\n") != 1:
-        i = libc32.find("EXPORT int my32___xstat(")
-        print(f"[pathmap2-dbg] my32___xstat 实际内容(签名起5行):\n{libc32[i:i+300]!r}", file=sys.stderr)
-        if i < 0:
-            print("[pathmap2-dbg] 签名行完全不存在", file=sys.stderr)
     libc32 = apply(libc32, *stat_job32(
         "EXPORT int my32___xstat(x64emu_t* emu, int v, void* path, void* buf)\n",
         "path"), 1, "my32___xstat", "wrapped32/wrappedlibc.c")
@@ -189,11 +177,11 @@ def _patch32(srcdir):
         "name"), 1, "my32___lxstat64", "wrapped32/wrappedlibc.c")
     libc32 = apply(libc32, *stat_job32(
         "EXPORT int my32___fxstatat64(x64emu_t* emu, int v, int d, void* path, void* buf, int flags)\n",
-        "path", first="    struct  stat64 st;\n"), 1, "my32___fxstatat64", "wrapped32/wrappedlibc.c")
+        "path"), 1, "my32___fxstatat64", "wrapped32/wrappedlibc.c")
     # my32_stat 无 emu 参数（GOM noE 特例）
     libc32 = apply(libc32,
-        "EXPORT int my32_stat(char* path, void* buf)\n{\n    struct stat64 st;\n",
-        "EXPORT int my32_stat(char* path, void* buf)\n{\n    struct stat64 st;\n"
+        "EXPORT int my32_stat(char* path, void* buf)\n{\n",
+        "EXPORT int my32_stat(char* path, void* buf)\n{\n"
         f"    path = (void*)box64_pathmap(path);  // {SENTINEL}\n",
         1, "my32_stat", "wrapped32/wrappedlibc.c")
 
