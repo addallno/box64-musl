@@ -171,6 +171,13 @@ def _patch32(srcdir):
         )
         return (old, new)
 
+    # 诊断：锚不中时 dump CI 真实函数体（BOX64-BUILD: pathmap2-dbg）
+    _sig = "EXPORT int my32___xstat(x64emu_t* emu, int v, void* path, void* buf)\n{\n"
+    if libc32.count(_sig + "    struct stat64 st;\n") != 1:
+        i = libc32.find("EXPORT int my32___xstat(")
+        print(f"[pathmap2-dbg] my32___xstat 实际内容(签名起5行):\n{libc32[i:i+300]!r}", file=sys.stderr)
+        if i < 0:
+            print("[pathmap2-dbg] 签名行完全不存在", file=sys.stderr)
     libc32 = apply(libc32, *stat_job32(
         "EXPORT int my32___xstat(x64emu_t* emu, int v, void* path, void* buf)\n",
         "path"), 1, "my32___xstat", "wrapped32/wrappedlibc.c")
