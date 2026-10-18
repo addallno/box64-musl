@@ -40,13 +40,16 @@ JOBS = [
                 """        if(hint && hint->block && (hint->type == BTYPE_MAP) && hint->maxfree && (hint->is32bits==is32bits)) {
 """,
                 """        if(hint && hint->block && (hint->type == BTYPE_MAP) && hint->maxfree && (hint->is32bits==is32bits)) {
-            // BOX64-BUILD: map-prot-probe hint 路径全块逐页 vma 检查（抓中间页消失；mincore 不依赖簿记/锁）
+            // BOX64-BUILD: map-prot-probe hint 路径全块逐页 vma+prot 检查（vma=mincore；prot=簿记直读 rb_get）
             for(uintptr_t pg=(uintptr_t)hint->block; pg<(uintptr_t)hint->block+hint->size; pg+=0x1000) {
-                if(!probe_vma((void*)pg)) {
-                    fprintf(stderr, "[map128probe] badpage=%p vma=0 hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
-                        (void*)pg, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map128);
+                int vma_ok = (probe_vma((void*)pg) == 0);
+                uint32_t pr = memprot ? rb_get(memprot, pg) : 0;
+                if(!vma_ok || !(pr & PROT_READ)) {
+                    fprintf(stderr, "[map128probe] badpage=%p vma=%d prot=0x%x hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
+                        (void*)pg, vma_ok, pr, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map128);
                     fflush(stderr);
-                    break;
+                    mutex_unlock(&mutex_blocks);
+                    return NULL;
                 }
             }
 """,
@@ -55,13 +58,16 @@ JOBS = [
                 """        if (hint && hint->block && hint->type == BTYPE_MAP64 && hint->maxfree && (hint->is32bits==is32bits)) {
 """,
                 """        if (hint && hint->block && hint->type == BTYPE_MAP64 && hint->maxfree && (hint->is32bits==is32bits)) {
-            // BOX64-BUILD: map-prot-probe hint 路径全块逐页 vma 检查（抓中间页消失；mincore 不依赖簿记/锁）
+            // BOX64-BUILD: map-prot-probe hint 路径全块逐页 vma+prot 检查（vma=mincore；prot=簿记直读 rb_get）
             for(uintptr_t pg=(uintptr_t)hint->block; pg<(uintptr_t)hint->block+hint->size; pg+=0x1000) {
-                if(!probe_vma((void*)pg)) {
-                    fprintf(stderr, "[map64probe] badpage=%p vma=0 hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
-                        (void*)pg, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map64);
+                int vma_ok = (probe_vma((void*)pg) == 0);
+                uint32_t pr = memprot ? rb_get(memprot, pg) : 0;
+                if(!vma_ok || !(pr & PROT_READ)) {
+                    fprintf(stderr, "[map64probe] badpage=%p vma=%d prot=0x%x hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
+                        (void*)pg, vma_ok, pr, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map64);
                     fflush(stderr);
-                    break;
+                    mutex_unlock(&mutex_blocks);
+                    return NULL;
                 }
             }
 """,
