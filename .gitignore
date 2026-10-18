@@ -1,1 +1,4 @@
 __pycache__/
+box64/
+.cache/
+*.tar.gz
