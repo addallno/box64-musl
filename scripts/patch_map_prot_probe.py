@@ -45,9 +45,29 @@ JOBS = [
                 int vma_ok = (probe_vma((void*)pg) == 0);
                 uint32_t pr = memprot ? rb_get(memprot, pg) : 0;
                 if(!vma_ok || !(pr & PROT_READ)) {
-                    fprintf(stderr, "[map128probe] badpage=%p vma=%d prot=0x%x hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
-                        (void*)pg, vma_ok, pr, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map128);
-                    fflush(stderr);
+                    static int bad_cnt = 0;
+                    if(bad_cnt < 40) {
+                        ++bad_cnt;
+                        fprintf(stderr, "[map128probe] badpage=%p vma=%d prot=0x%x hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
+                            (void*)pg, vma_ok, pr, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map128);
+                        if(bad_cnt <= 3) {
+                            FILE* mf = fopen("/proc/self/maps", "r");
+                            if(mf) {
+                                char ln[320];
+                                uintptr_t bb = (uintptr_t)hint->block;
+                                while(fgets(ln, sizeof(ln), mf)) {
+                                    uintptr_t a = strtoul(ln, NULL, 16);
+                                    char* dash = strchr(ln, '-');
+                                    if(dash) {
+                                        uintptr_t e = strtoul(dash+1, NULL, 16);
+                                        if(bb >= a && bb < e) { fprintf(stderr, "[badmaps128] %s", ln); break; }
+                                    }
+                                }
+                                fclose(mf);
+                            }
+                        }
+                        fflush(stderr);
+                    }
                     if(!vma_ok) {
                         mutex_unlock(&mutex_blocks);
                         return NULL;
@@ -65,9 +85,29 @@ JOBS = [
                 int vma_ok = (probe_vma((void*)pg) == 0);
                 uint32_t pr = memprot ? rb_get(memprot, pg) : 0;
                 if(!vma_ok || !(pr & PROT_READ)) {
-                    fprintf(stderr, "[map64probe] badpage=%p vma=%d prot=0x%x hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
-                        (void*)pg, vma_ok, pr, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map64);
-                    fflush(stderr);
+                    static int bad_cnt = 0;
+                    if(bad_cnt < 40) {
+                        ++bad_cnt;
+                        fprintf(stderr, "[map64probe] badpage=%p vma=%d prot=0x%x hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
+                            (void*)pg, vma_ok, pr, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map64);
+                        if(bad_cnt <= 3) {
+                            FILE* mf = fopen("/proc/self/maps", "r");
+                            if(mf) {
+                                char ln[320];
+                                uintptr_t bb = (uintptr_t)hint->block;
+                                while(fgets(ln, sizeof(ln), mf)) {
+                                    uintptr_t a = strtoul(ln, NULL, 16);
+                                    char* dash = strchr(ln, '-');
+                                    if(dash) {
+                                        uintptr_t e = strtoul(dash+1, NULL, 16);
+                                        if(bb >= a && bb < e) { fprintf(stderr, "[badmaps64] %s", ln); break; }
+                                    }
+                                }
+                                fclose(mf);
+                            }
+                        }
+                        fflush(stderr);
+                    }
                     if(!vma_ok) {
                         mutex_unlock(&mutex_blocks);
                         return NULL;
@@ -88,9 +128,29 @@ JOBS = [
                     int vma_ok = (probe_vma((void*)pg) == 0);
                     uint32_t pr = memprot ? rb_get(memprot, pg) : 0;
                     if(!vma_ok || !(pr & PROT_READ)) {
-                        fprintf(stderr, "[map64mprobe] badpage=%p vma=%d prot=0x%x i=%d block=%p first=%p\\n",
-                            (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first);
-                        fflush(stderr);
+                        static int bad_cnt_m64 = 0;
+                        if(bad_cnt_m64 < 40) {
+                            ++bad_cnt_m64;
+                            fprintf(stderr, "[map64mprobe] badpage=%p vma=%d prot=0x%x i=%d block=%p first=%p\\n",
+                                (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first);
+                            if(bad_cnt_m64 <= 3) {
+                                FILE* mf = fopen("/proc/self/maps", "r");
+                                if(mf) {
+                                    char ln[320];
+                                    uintptr_t bb = (uintptr_t)p_blocks[i].block;
+                                    while(fgets(ln, sizeof(ln), mf)) {
+                                        uintptr_t a = strtoul(ln, NULL, 16);
+                                        char* dash = strchr(ln, '-');
+                                        if(dash) {
+                                            uintptr_t e = strtoul(dash+1, NULL, 16);
+                                            if(bb >= a && bb < e) { fprintf(stderr, "[badmaps64m] %s", ln); break; }
+                                        }
+                                    }
+                                    fclose(mf);
+                                }
+                            }
+                            fflush(stderr);
+                        }
                         if(!vma_ok) {
                             bad_blk = 1;
                             break;
@@ -115,9 +175,29 @@ JOBS = [
                     int vma_ok = (probe_vma((void*)pg) == 0);
                     uint32_t pr = memprot ? rb_get(memprot, pg) : 0;
                     if(!vma_ok || !(pr & PROT_READ)) {
-                        fprintf(stderr, "[map128mprobe] badpage=%p vma=%d prot=0x%x i=%d block=%p first=%p\\n",
-                            (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first);
-                        fflush(stderr);
+                        static int bad_cnt_m128 = 0;
+                        if(bad_cnt_m128 < 40) {
+                            ++bad_cnt_m128;
+                            fprintf(stderr, "[map128mprobe] badpage=%p vma=%d prot=0x%x i=%d block=%p first=%p\\n",
+                                (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first);
+                            if(bad_cnt_m128 <= 3) {
+                                FILE* mf = fopen("/proc/self/maps", "r");
+                                if(mf) {
+                                    char ln[320];
+                                    uintptr_t bb = (uintptr_t)p_blocks[i].block;
+                                    while(fgets(ln, sizeof(ln), mf)) {
+                                        uintptr_t a = strtoul(ln, NULL, 16);
+                                        char* dash = strchr(ln, '-');
+                                        if(dash) {
+                                            uintptr_t e = strtoul(dash+1, NULL, 16);
+                                            if(bb >= a && bb < e) { fprintf(stderr, "[badmaps128m] %s", ln); break; }
+                                        }
+                                    }
+                                    fclose(mf);
+                                }
+                            }
+                            fflush(stderr);
+                        }
                         if(!vma_ok) {
                             bad_blk = 1;
                             break;
@@ -200,6 +280,44 @@ JOBS = [
                     __builtin_return_address(0), __builtin_return_address(1));
             InternalMunmap(addr, size);
 """,
+            ),
+            (
+                """        } else
+            setProtection((uintptr_t)p, allocsize, PROT_READ | PROT_WRITE);
+    }
+    return ret;
+}
+// the BTYPE_MAP64 is a simple bitmap based allocator""",
+                """        } else
+            setProtection((uintptr_t)p, allocsize, PROT_READ | PROT_WRITE);
+    }
+    // BOX64-BUILD: map-prot-probe newBlock setProtection/defer 状态（单槽 defer 覆盖丢失=prot0 抓手）
+    fprintf(stderr, "[setprot128] p=%p sz=%lu setting=%d defered_p=%p dprot=0x%x nowprot=0x%x\\n",
+        (void*)p, (unsigned long)allocsize, setting_prot, (void*)defered_prot_p,
+        defered_prot_prot, memprot ? rb_get(memprot, (uintptr_t)p) : 0);
+    return ret;
+}
+// the BTYPE_MAP64 is a simple bitmap based allocator""",
+            ),
+            (
+                """        } else {
+            setProtection((uintptr_t)p, allocsize, PROT_READ | PROT_WRITE);
+        }
+    }
+
+    return ret;
+}""",
+                """        } else {
+            setProtection((uintptr_t)p, allocsize, PROT_READ | PROT_WRITE);
+        }
+    }
+    // BOX64-BUILD: map-prot-probe newBlock setProtection/defer 状态（单槽 defer 覆盖丢失=prot0 抓手）
+    fprintf(stderr, "[setprot64] p=%p sz=%lu setting=%d defered_p=%p dprot=0x%x nowprot=0x%x\\n",
+        (void*)p, (unsigned long)allocsize, setting_prot, (void*)defered_prot_p,
+        defered_prot_prot, memprot ? rb_get(memprot, (uintptr_t)p) : 0);
+
+    return ret;
+}""",
             ),
         ],
     ),

@@ -408,7 +408,9 @@ grep -q 'freeprobe] hi-free' "$WORK/box64/src/mallochook.c" || fail_check "freep
 grep -q 'boxmapprobe] hi-unmap' "$WORK/box64/src/custommem.c" || fail_check "boxmapprobe 未注入 custommem.c box_munmap"
 grep -q 'dellistprobe] hi-unmap' "$WORK/box64/src/custommem.c" || fail_check "dellistprobe 未注入 custommem.c DelMmaplist"
 grep -q 'dynarec-mmap-lock' "$WORK/box64/src/custommem.c" || fail_check "dynarec-mmap-lock 未注入 custommem.c box32_dynarec_mmap"
-echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok map-prot-probe=ok openprobe=ok lmprobe=ok freeprobe=ok boxmapprobe=ok dellistprobe=ok dynarec-mmap-lock=ok"
+grep -q 'setprot64] p=' "$WORK/box64/src/custommem.c" || fail_check "setprot64 未注入 custommem.c map64_newBlock"
+grep -q 'setprot128] p=' "$WORK/box64/src/custommem.c" || fail_check "setprot128 未注入 custommem.c map128_newBlock"
+echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok map-prot-probe=ok openprobe=ok lmprobe=ok freeprobe=ok boxmapprobe=ok dellistprobe=ok dynarec-mmap-lock=ok setprot=ok"
 
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
