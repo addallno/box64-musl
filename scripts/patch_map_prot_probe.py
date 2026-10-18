@@ -76,6 +76,40 @@ JOBS = [
 """,
             ),
             (
+                """    if(is32bits) mutex_lock(&mutex_blocks);
+    #ifdef TRACE_MEMSTAT
+    customMalloc_allocated += allocsize;
+    #endif
+    size_t mapsize = (allocsize/128)/8;
+""",
+                """    if(is32bits) mutex_lock(&mutex_blocks);
+    // BOX64-BUILD: map-prot-probe new128 高区/MAP_FAILED 现场（写条目前，抓 is32bits=1 拿到高区泄漏条目）
+    if(p == MAP_FAILED || (is32bits && p && (uintptr_t)p > 0xffffffffULL))
+        fprintf(stderr, "[new128hi] p=%p is32=%d i=%d\\n", p, is32bits, i);
+    #ifdef TRACE_MEMSTAT
+    customMalloc_allocated += allocsize;
+    #endif
+    size_t mapsize = (allocsize/128)/8;
+""",
+            ),
+            (
+                """    if(is32bits) mutex_lock(&mutex_blocks);
+
+    #ifdef TRACE_MEMSTAT
+    customMalloc_allocated += allocsize;
+    #endif
+""",
+                """    if(is32bits) mutex_lock(&mutex_blocks);
+    // BOX64-BUILD: map-prot-probe new64 高区/MAP_FAILED 现场（写条目前，抓 is32bits=1 拿到高区泄漏条目）
+    if(p == MAP_FAILED || (is32bits && p && (uintptr_t)p > 0xffffffffULL))
+        fprintf(stderr, "[new64hi] p=%p is32=%d i=%d\\n", p, is32bits, i);
+
+    #ifdef TRACE_MEMSTAT
+    customMalloc_allocated += allocsize;
+    #endif
+""",
+            ),
+            (
                 """EXPORT int box_munmap(void* addr, size_t length)
 {
     int ret = InternalMunmap(addr, length);
