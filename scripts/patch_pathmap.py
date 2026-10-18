@@ -75,6 +75,9 @@ PATHMAP_C = r"""// SPDX-License-Identifier: MIT
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <sys/mman.h>
 #include <pthread.h>
 #include "pathmap.h"
 
@@ -144,6 +147,16 @@ const char* box64_pathmap(const char* path)
         return path;
     if (pm_n == 0)
         return path;    // 快路径：未配置 BOX64_PATHMAP
+    {
+        /* BOX64-BUILD: pmprobe —— path 指针页有效性探针（野指针防御 + 定位调用者） */
+        unsigned char vec = 0;
+        if (mincore((void*)((uintptr_t)path & ~(uintptr_t)0xfff), 0x1000, &vec) == -1
+            && errno == ENOMEM) {
+            fprintf(stderr, "[pmprobe] bad-path=%p caller=%p\n",
+                path, __builtin_return_address(0));
+            return path;    // 防御：页不存在，跳过 strncmp 避免 SIGSEGV
+        }
+    }
     pthread_mutex_lock(&pm_lock);
     if (pm_n < 0) {
         const char* env = getenv("BOX64_PATHMAP");
