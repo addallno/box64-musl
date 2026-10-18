@@ -3,7 +3,7 @@
 ## 目标
 `box64-bin ./steamcmd +login addallno +quit` 联网登录跑通（musl box64，非 glibc）。
 
-## 现状（bin 034a064b，2026-10-15）
+## 现状（bin d52e3698，2026-10-17；历史基线 034a064b）
 - **主线达成**：72+ 轮测试 37-24/40 全 OK（缓存凭证登录→user info→Unloading→退出），0 崩溃
 - 残余：网络慢致 Steam Public 登录偶超 45-60s（非 box64 bug）；/data 99% 满致 breakpad Fatal（清 `$TMPDIR/dumps*` 恢复）
 - 备份 bin：`bin/box64-bin.e6d931a7-backup`（上一里程碑）、`bin/box64-bin.50c72a51-backup`（基线）
@@ -59,3 +59,11 @@ cd $HOME/Ubuntu/root/steam/linux32
 timeout -k 5 90 ~/openwork/box64-test/bin/box64-bin.probe ./steamcmd +quit
 # wrapped 调用 trace：BOX64_LOG=3；freopen64 后日志重定向到 $HOME/Steam/logs/stderr.txt
 ```
+
+## box32 malloc/free 混用崩溃修复（2026-10-17 晚，bin d52e3698）
+- **现象**：32 位 steamclient.so 两连 SIGSEGV：@steamclient+0x18559f0 访 0x7f9804a898(prot=0) → 崩后 native 路径 box64/free+0x13、box64/malloc+0x13（x0=0x7f…90c0+0x2058，musl mallocng arena meta 形态）。
+- **第一现场**（BOX64_LOG=3 线程 0912）：malloc(0x21)→0xFF53AC70 → free(0xFF53AC70) 时 SIGSEGV。
+- **根因**：32 位进程 `reverveHigMem32()` 把地址空间限 4G → 宿主 brk heap 落低 4G（0xFF 段）→ box32_malloc 的 `FITS_IN_32BIT(ret,s)` 短路把宿主块直接交给 guest → 崩时 free 却走到 box64/free native 路径 → 访问 musl mallocng 高区 arena meta（0x7f…，prot=0，被 reserve/dynarec 波及）→ SIGSEGV。
+- **修复**（commit 4e0f55b，patch_b14_box32_alloc.py 新增 mallochook.c 段）：box32_malloc/calloc/memalign 去掉 FITS 短路，一律 customMalloc32/customCalloc32/customMemAligned32（低 4G 受控块，与 box32_free 的 isCustomAddr 路径配对）。realloc/free/usable_size 保持原逻辑。
+- **验证**（bin d52e3698）：32 位 SIGSEGV 全文 0 条、Fatal=0；64 位 2 轮 rc=0 干净。已转正 box64-bin（备份 box64-bin.8f441255-backup2）。
+- **残留（下一攻坚）**：32 位跑到 "Loading Steam API..." 后挂起 rc=124（150s 轮 stdout 只到 Logging directory 即停），卡点待 LOG=3 定位（疑网络 update check / mutex）。
