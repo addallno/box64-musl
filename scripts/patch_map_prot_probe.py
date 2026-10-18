@@ -96,8 +96,10 @@ JOBS = [
 """,
                 """    int ret = InternalMunmap(addr, length);
     // BOX64-BUILD: map-prot-probe 32位进程高区 munmap 时间线（宿主池页消失指纹）
+    // inpool 反查 findBlock（跨文件 extern，返回指针只测空）
+    extern void* findBlock(uintptr_t addr);
     if(box64_is32bits && !ret && (uintptr_t)addr > 0xffffffffULL)
-        fprintf(stderr, "[munmapprobe] hi-unmap addr=%p len=%lu caller=%p\\n", addr, length, __builtin_return_address(0));
+        fprintf(stderr, "[munmapprobe] hi-unmap addr=%p len=%lu inpool=%d caller=%p caller2=%p\\n", addr, length, findBlock((uintptr_t)addr)?1:0, __builtin_return_address(0), __builtin_return_address(1));
     if(!ret && mapallmem) {
 """,
             ),
