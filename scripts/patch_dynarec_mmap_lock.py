@@ -21,10 +21,7 @@ from pathlib import Path
 
 SENTINEL = "BOX64-BUILD: dynarec-mmap-lock"
 
-OLD = """void* box32_dynarec_mmap(size_t size, int fd, off_t offset)
-{
-    #ifdef BOX32
-    // find a block that was prereserve before and big enough
+OLD = """    // find a block that was prereserve before and big enough
     size = ALIGN(size);
     uint32_t flag;
     static uintptr_t cur = 0x100000000LL;
@@ -47,10 +44,7 @@ OLD = """void* box32_dynarec_mmap(size_t size, int fd, off_t offset)
 #endif
 """
 
-NEW = """void* box32_dynarec_mmap(size_t size, int fd, off_t offset)
-{
-    #ifdef BOX32
-    // find a block that was prereserve before and big enough
+NEW = """    // find a block that was prereserve before and big enough
     size = ALIGN(size);
     uint32_t flag;
     static uintptr_t cur = 0x100000000LL;
