@@ -73,6 +73,56 @@ JOBS = [
 """,
             ),
             (
+                """            uint16_t* map = p_blocks[i].first;
+            uint32_t slices = p_blocks[i].size >> 6;
+            for (uint32_t idx = p_blocks[i].lowest; idx < slices; ++idx) {
+""",
+                """            // BOX64-BUILD: map-prot-probe 主循环块健康检查（坏块跳过，防崩）
+            {
+                int bad_blk = 0;
+                for(uintptr_t pg=(uintptr_t)p_blocks[i].block; pg<(uintptr_t)p_blocks[i].block+p_blocks[i].size; pg+=0x1000) {
+                    int vma_ok = (probe_vma((void*)pg) == 0);
+                    uint32_t pr = memprot ? rb_get(memprot, pg) : 0;
+                    if(!vma_ok || !(pr & PROT_READ)) {
+                        fprintf(stderr, "[map64mprobe] badpage=%p vma=%d prot=0x%x i=%d block=%p first=%p\\n",
+                            (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first);
+                        fflush(stderr);
+                        bad_blk = 1;
+                        break;
+                    }
+                }
+                if(bad_blk) continue;
+            }
+            uint16_t* map = p_blocks[i].first;
+            uint32_t slices = p_blocks[i].size >> 6;
+            for (uint32_t idx = p_blocks[i].lowest; idx < slices; ++idx) {
+""",
+            ),
+            (
+                """            // look for a free block
+            uint8_t* map = p_blocks[i].first;
+""",
+                """            // BOX64-BUILD: map-prot-probe 主循环块健康检查（坏块跳过，防崩）
+            {
+                int bad_blk = 0;
+                for(uintptr_t pg=(uintptr_t)p_blocks[i].block; pg<(uintptr_t)p_blocks[i].block+p_blocks[i].size; pg+=0x1000) {
+                    int vma_ok = (probe_vma((void*)pg) == 0);
+                    uint32_t pr = memprot ? rb_get(memprot, pg) : 0;
+                    if(!vma_ok || !(pr & PROT_READ)) {
+                        fprintf(stderr, "[map128mprobe] badpage=%p vma=%d prot=0x%x i=%d block=%p first=%p\\n",
+                            (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first);
+                        fflush(stderr);
+                        bad_blk = 1;
+                        break;
+                    }
+                }
+                if(bad_blk) continue;
+            }
+            // look for a free block
+            uint8_t* map = p_blocks[i].first;
+""",
+            ),
+            (
                 """        rb_set(mapallmem, addr, addr+size, MEM_EXTERNAL);
 """,
                 """        // BOX64-BUILD: map-prot-probe EXTERNAL+PROT_NONE 段入簿时间线（32位，抓野指针段来源）
