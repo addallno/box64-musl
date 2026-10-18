@@ -72,6 +72,16 @@ JOBS = [
         "src/custommmap.c",
         [
             (
+                """#include <unistd.h>
+#include <stdint.h>
+""",
+                """#include <unistd.h>
+#include <stdint.h>
+// BOX64-BUILD: map-prot-probe 探针 fprintf 需 stdio
+#include <stdio.h>
+""",
+            ),
+            (
                 """    int ret = InternalMunmap(addr, length);
     if(!ret && mapallmem) {
 """,
