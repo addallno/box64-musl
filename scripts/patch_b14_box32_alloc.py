@@ -105,7 +105,11 @@ MY32_MALLOC_NEW = """EXPORT void* my32_malloc(unsigned long size)
     // BOX64-BUILD: b14-box32-alloc: 裸宿主 calloc 返回 >4GB 指针，
     // wrapper32 返回值 to_ptrv（TEST_ABORT）即 abort；改走 actual_*
     //（box64_is32bits 时 box32_* 落 MAP_32BIT 32 位堆）
-    return actual_calloc(1, size);
+    void* r = actual_calloc(1, size);
+    extern int isCustomAddr(void* p);  // BOX64-BUILD: mdbg32 临时诊断
+    if(r && (uintptr_t)r < 0x100000000ULL && !isCustomAddr(r))
+        printf_log(LOG_INFO, "[mdbg32] my32_malloc(%lu)=%p NOT-custom(native低址?)\\n", size, r);
+    return r;
 }
 EXPORT void* my32_calloc(size_t nmemb, size_t size)
 {
@@ -117,6 +121,9 @@ EXPORT void* my32_realloc(void* ptr, size_t size)
 }
 EXPORT void my32_free(void* ptr)
 {
+    extern int isCustomAddr(void* p);  // BOX64-BUILD: mdbg32 临时诊断
+    if(ptr && (uintptr_t)ptr < 0x100000000ULL && !isCustomAddr(ptr))
+        printf_log(LOG_INFO, "[mdbg32] my32_free(%p) NOT-custom -> native free 将处理32位块!\\n", ptr);
     actual_free(ptr);
 }
 EXPORT void* my32_memalign(size_t align, size_t size)
