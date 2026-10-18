@@ -133,6 +133,22 @@ EXPORT int32_t my_open(x64emu_t* emu, void* pathname, int32_t flags, uint32_t mo
             ),
         ],
     ),
+    (
+        "src/mallochook.c",
+        [
+            (
+                """EXPORT void free(void* p)
+{
+""",
+                """EXPORT void free(void* p)
+{
+    // BOX64-BUILD: map-prot-probe 高区 free 来源追踪（128K map64 块被 __libc_free 打洞）
+    if(box64_is32bits && p && (uintptr_t)p > 0xffffffffULL)
+        fprintf(stderr, "[freeprobe] hi-free=%p caller=%p\\n", p, __builtin_return_address(0));
+""",
+            ),
+        ],
+    ),
 ]
 
 
