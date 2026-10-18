@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""patch_map_prot_probe.py — map128/map64 hint 路径 mincore VMA 探针 + 高区 munmap 时间线
+
+背景（崩溃 B 排查，bin d52e3698 addr2line 定位）：
+- SIGSEGV native pc = map128_customMalloc:651 / map64_customMalloc:785（均为 hint 缓存路径读块数据）
+- 崩溃地址 0x7f8c…（宿主 mmap 池形态）：#PF ERR=5 页不存在、maps 多时点无该段、
+  memExist=17(MEM_EXTERNAL)/prot=0 —— 簿记 EXTERNAL 残留 + VMA 已消失
+- 簿记（getProtection/memExist）不可信，用 mincore 真实探 VMA 存在性
+- 附带 EXPORT munmap 高区(>4G)时间线打印，定位谁 unmap 了宿主池页
+
+不改上游、CI 构建时注入。哨兵：BOX64-BUILD: map-prot-probe（幂等）
+用法：python3 patch_map_prot_probe.py <box64源码目录>
+退出码：0=成功/已幂等，1=锚点缺失
+"""
+import sys
+from pathlib import Path
+
+SENTINEL = "BOX64-BUILD: map-prot-probe"
+
+# helper 插在 map128_customMalloc 函数定义前
+HELPER_ANCHOR = "void* map128_customMalloc(size_t size, int is32bits)"
+HELPER_CODE = """// BOX64-BUILD: map-prot-probe mincore 探 VMA 存在性（0=有映射，-1=无 VMA/越界）
+static int probe_vma(const void* p)
+{
+    unsigned char vec = 0;
+    if(!p) return -1;
+    return mincore((void*)(((uintptr_t)p) & ~(size_t)(box64_pagesize-1)), box64_pagesize, &vec);
+}
+"""
+
+JOBS = [
+    (
+        "src/custommem.c",
+        [
+            (
+                HELPER_ANCHOR,
+                HELPER_CODE + HELPER_ANCHOR,
+            ),
+            (
+                """        if(hint && hint->block && (hint->type == BTYPE_MAP) && hint->maxfree && (hint->is32bits==is32bits)) {
+""",
+                """        if(hint && hint->block && (hint->type == BTYPE_MAP) && hint->maxfree && (hint->is32bits==is32bits)) {
+            // BOX64-BUILD: map-prot-probe hint 路径 VMA 健康检查
+            if(probe_vma(hint) || probe_vma(hint->block) || probe_vma(hint->first)) {
+                fprintf(stderr, "[map128probe] VMA-missing hint=%p(%d) block=%p(%d) first=%p(%d) is32=%d maxfree=%u type=%d n=%d last=%d\\n",
+                    hint, probe_vma(hint),
+                    hint->block, probe_vma(hint->block),
+                    hint->first, probe_vma(hint->first),
+                    hint->is32bits, hint->maxfree, hint->type, n_blocks, last_block_index_map128);
+                fflush(stderr);
+            }
+""",
+            ),
+            (
+                """        if (hint && hint->block && hint->type == BTYPE_MAP64 && hint->maxfree && (hint->is32bits==is32bits)) {
+""",
+                """        if (hint && hint->block && hint->type == BTYPE_MAP64 && hint->maxfree && (hint->is32bits==is32bits)) {
+            // BOX64-BUILD: map-prot-probe hint 路径 VMA 健康检查
+            if(probe_vma(hint) || probe_vma(hint->block) || probe_vma(hint->first)) {
+                fprintf(stderr, "[map64probe] VMA-missing hint=%p(%d) block=%p(%d) first=%p(%d) is32=%d maxfree=%u type=%d n=%d last=%d\\n",
+                    hint, probe_vma(hint),
+                    hint->block, probe_vma(hint->block),
+                    hint->first, probe_vma(hint->first),
+                    hint->is32bits, hint->maxfree, hint->type, n_blocks, last_block_index_map64);
+                fflush(stderr);
+            }
+""",
+            ),
+        ],
+    ),
+    (
+        "src/custommmap.c",
+        [
+            (
+                """    int ret = InternalMunmap(addr, length);
+    if(!ret && mapallmem) {
+""",
+                """    int ret = InternalMunmap(addr, length);
+    // BOX64-BUILD: map-prot-probe 32位进程高区 munmap 时间线（宿主池页消失指纹）
+    if(box64_is32bits && !ret && (uintptr_t)addr > 0xffffffffULL)
+        fprintf(stderr, "[munmapprobe] hi-unmap addr=%p len=%lu\\n", addr, length);
+    if(!ret && mapallmem) {
+""",
+            ),
+        ],
+    ),
+]
+
+
+def main() -> int:
+    if len(sys.argv) != 2:
+        print(__doc__)
+        return 1
+    root = Path(sys.argv[1])
+    for rel, edits in JOBS:
+        path = root / rel
+        if not path.exists():
+            print(f"锚点缺失: {path}")
+            return 1
+        text = path.read_text(encoding="utf-8")
+        if SENTINEL in text:
+            print(f"已幂等: {rel}")
+            continue
+        for old, new in edits:
+            n = text.count(old)
+            if n != 1:
+                print(f"锚点异常 {rel}: 出现 {n} 次（期望 1）: {old[:60]!r}")
+                return 1
+            text = text.replace(old, new, 1)
+        path.write_text(text, encoding="utf-8")
+        print(f"已应用 {rel}: {len(edits)} 段")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
