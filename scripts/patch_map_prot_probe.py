@@ -75,6 +75,21 @@ JOBS = [
         rb_set(mapallmem, addr, addr+size, MEM_EXTERNAL);
 """,
             ),
+            (
+                """EXPORT int box_munmap(void* addr, size_t length)
+{
+    int ret = InternalMunmap(addr, length);
+""",
+                """EXPORT int box_munmap(void* addr, size_t length)
+{
+    int ret = InternalMunmap(addr, length);
+    // BOX64-BUILD: map-prot-probe box_munmap 高区时间线（guest my_munmap 链走此，非 EXPORT munmap）
+    if(box64_is32bits && !ret && (uintptr_t)addr > 0xffffffffULL)
+        fprintf(stderr, "[boxmapprobe] hi-unmap addr=%p len=%lu inpool=%d caller=%p caller2=%p\\n",
+            addr, length, findBlock((uintptr_t)addr)?1:0,
+            __builtin_return_address(0), __builtin_return_address(1));
+""",
+            ),
         ],
     ),
     (
