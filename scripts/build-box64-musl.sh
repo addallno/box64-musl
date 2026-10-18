@@ -382,6 +382,7 @@ python3 $GITHUB_WORKSPACE/scripts/patch_box32_probe.py $WORK/box64
 
 echo "==> 打 box32-mmap-guard 补丁（box32_dynarec_mmap 早期 mapallmem=NULL fallback，修 32-bit 启动 SIGSEGV）"
 python3 $GITHUB_WORKSPACE/scripts/patch_box32_mmap_guard.py $WORK/box64
+python3 $GITHUB_WORKSPACE/scripts/patch_map_prot_probe.py $WORK/box64
 
 echo "==> [自检] patch 链关键不变量（防锚文本漂移/顺序破坏悄悄失效）"
 CHECK_SRC="$WORK/box64/src/wrapped/wrappedlibc.c"
@@ -398,7 +399,9 @@ USE_LINE=$(grep -n 'ai->ai_flags = oflags | BOX64_GAI_FB_FLAG' "$CHECK_SRC" | he
 grep -q 'box64_dns_fallback' "$CHECK_SRC" || fail_check "patch_gai 注入的 fallback 缺失（链序被破坏）"
 grep -q 'EXPORT void\* my___sched_cpualloc(x64emu_t\* emu' "$CHECK_SRC" || fail_check "my___sched_cpualloc 缺失或无 emu"
 grep -q 'BOX64_MUTEX_DEBUG' "$WORK/box64/src/wrapped/wrappedlibpthread.c" || fail_check "md-enter 未接 BOX64_MUTEX_DEBUG 门控"
-echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok"
+grep -q 'BOX64-BUILD: map-prot-probe' "$WORK/box64/src/custommem.c" || fail_check "map-prot-probe 未注入 custommem.c"
+grep -q 'BOX64-BUILD: map-prot-probe' "$WORK/box64/src/custommmap.c" || fail_check "map-prot-probe 未注入 custommmap.c"
+echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok map-prot-probe=ok"
 
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
