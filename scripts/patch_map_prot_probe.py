@@ -90,6 +90,19 @@ JOBS = [
             __builtin_return_address(0), __builtin_return_address(1));
 """,
             ),
+            (
+                """            int isReserved = box64_is32bits && (uintptr_t)addr>0xffffffffLL;
+            InternalMunmap(addr, size);
+""",
+                """            int isReserved = box64_is32bits && (uintptr_t)addr>0xffffffffLL;
+            // BOX64-BUILD: map-prot-probe DelMmaplist 高区 munmap+PROT_NONE re-reserve 时间线
+            if(box64_is32bits && (uintptr_t)addr > 0xffffffffULL)
+                fprintf(stderr, "[dellistprobe] hi-unmap addr=%p len=%lu inpool=%d caller=%p caller2=%p\\n",
+                    addr, size, findBlock((uintptr_t)addr)?1:0,
+                    __builtin_return_address(0), __builtin_return_address(1));
+            InternalMunmap(addr, size);
+""",
+            ),
         ],
     ),
     (

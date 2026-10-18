@@ -405,7 +405,8 @@ grep -q 'openprobe] bad-path' "$WORK/box64/src/wrapped/wrappedlibc.c" || fail_ch
 grep -q 'lmprobe] ext-none' "$WORK/box64/src/custommem.c" || fail_check "lmprobe 未注入 custommem.c allocProtection"
 grep -q 'freeprobe] hi-free' "$WORK/box64/src/mallochook.c" || fail_check "freeprobe 未注入 mallochook.c EXPORT free"
 grep -q 'boxmapprobe] hi-unmap' "$WORK/box64/src/custommem.c" || fail_check "boxmapprobe 未注入 custommem.c box_munmap"
-echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok map-prot-probe=ok openprobe=ok lmprobe=ok freeprobe=ok boxmapprobe=ok"
+grep -q 'dellistprobe] hi-unmap' "$WORK/box64/src/custommem.c" || fail_check "dellistprobe 未注入 custommem.c DelMmaplist"
+echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok map-prot-probe=ok openprobe=ok lmprobe=ok freeprobe=ok boxmapprobe=ok dellistprobe=ok"
 
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
