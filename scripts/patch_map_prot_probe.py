@@ -66,6 +66,15 @@ JOBS = [
             }
 """,
             ),
+            (
+                """        rb_set(mapallmem, addr, addr+size, MEM_EXTERNAL);
+""",
+                """        // BOX64-BUILD: map-prot-probe EXTERNAL+PROT_NONE 段入簿时间线（32位，抓野指针段来源）
+        if(box64_is32bits && prot==0)
+            fprintf(stderr, "[lmprobe] ext-none=%p-%p\\n", (void*)addr, (void*)(addr+size));
+        rb_set(mapallmem, addr, addr+size, MEM_EXTERNAL);
+""",
+            ),
         ],
     ),
     (
@@ -90,6 +99,36 @@ JOBS = [
     if(box64_is32bits && !ret && (uintptr_t)addr > 0xffffffffULL)
         fprintf(stderr, "[munmapprobe] hi-unmap addr=%p len=%lu\\n", addr, length);
     if(!ret && mapallmem) {
+""",
+            ),
+        ],
+    ),
+    (
+        "src/wrapped/wrappedlibc.c",
+        [
+            (
+                """EXPORT int32_t my_open(x64emu_t* emu, void* pathname, int32_t flags, uint32_t mode)
+{
+""",
+                """// BOX64-BUILD: map-prot-probe open 前 path 指针页有效性（崩溃 A：野 path 进 isProcSelf/strncmp 崩）
+static int probe_pathok(const void* p)
+{
+    unsigned char vec = 0;
+    if(!p) return 0;
+    if(mincore((void*)(((uintptr_t)p) & ~(uintptr_t)0xfff), 0x1000, &vec) == -1 && errno == ENOMEM) {
+        fprintf(stderr, "[openprobe] bad-path=%p\\n", p);
+        fflush(stderr);
+        return 0;
+    }
+    return 1;
+}
+EXPORT int32_t my_open(x64emu_t* emu, void* pathname, int32_t flags, uint32_t mode)
+{
+    // BOX64-BUILD: map-prot-probe 野 path 防御（EFAULT 返回，跳过 pathmap/isProcSelf 后续读）
+    if(pathname && !probe_pathok(pathname)) {
+        errno = EFAULT;
+        return -1;
+    }
 """,
             ),
         ],
