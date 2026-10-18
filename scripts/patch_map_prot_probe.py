@@ -48,8 +48,10 @@ JOBS = [
                     fprintf(stderr, "[map128probe] badpage=%p vma=%d prot=0x%x hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
                         (void*)pg, vma_ok, pr, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map128);
                     fflush(stderr);
-                    mutex_unlock(&mutex_blocks);
-                    return NULL;
+                    if(!vma_ok) {
+                        mutex_unlock(&mutex_blocks);
+                        return NULL;
+                    }
                 }
             }
 """,
@@ -66,8 +68,10 @@ JOBS = [
                     fprintf(stderr, "[map64probe] badpage=%p vma=%d prot=0x%x hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
                         (void*)pg, vma_ok, pr, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map64);
                     fflush(stderr);
-                    mutex_unlock(&mutex_blocks);
-                    return NULL;
+                    if(!vma_ok) {
+                        mutex_unlock(&mutex_blocks);
+                        return NULL;
+                    }
                 }
             }
 """,
@@ -87,8 +91,10 @@ JOBS = [
                         fprintf(stderr, "[map64mprobe] badpage=%p vma=%d prot=0x%x i=%d block=%p first=%p\\n",
                             (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first);
                         fflush(stderr);
-                        bad_blk = 1;
-                        break;
+                        if(!vma_ok) {
+                            bad_blk = 1;
+                            break;
+                        }
                     }
                 }
                 if(bad_blk) continue;
@@ -112,8 +118,10 @@ JOBS = [
                         fprintf(stderr, "[map128mprobe] badpage=%p vma=%d prot=0x%x i=%d block=%p first=%p\\n",
                             (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first);
                         fflush(stderr);
-                        bad_blk = 1;
-                        break;
+                        if(!vma_ok) {
+                            bad_blk = 1;
+                            break;
+                        }
                     }
                 }
                 if(bad_blk) continue;
