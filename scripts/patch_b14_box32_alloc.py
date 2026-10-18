@@ -105,11 +105,7 @@ MY32_MALLOC_NEW = """EXPORT void* my32_malloc(unsigned long size)
     // BOX64-BUILD: b14-box32-alloc: 裸宿主 calloc 返回 >4GB 指针，
     // wrapper32 返回值 to_ptrv（TEST_ABORT）即 abort；改走 actual_*
     //（box64_is32bits 时 box32_* 落 MAP_32BIT 32 位堆）
-    void* r = actual_calloc(1, size);
-    extern int isCustomAddr(void* p);  // BOX64-BUILD: mdbg32 临时诊断
-    if(r && (uintptr_t)r < 0x100000000ULL && !isCustomAddr(r))
-        printf_log(LOG_INFO, "[mdbg32] my32_malloc(%lu)=%p NOT-custom(native低址?)\\n", size, r);
-    return r;
+    return actual_calloc(1, size);
 }
 EXPORT void* my32_calloc(size_t nmemb, size_t size)
 {
@@ -121,9 +117,6 @@ EXPORT void* my32_realloc(void* ptr, size_t size)
 }
 EXPORT void my32_free(void* ptr)
 {
-    extern int isCustomAddr(void* p);  // BOX64-BUILD: mdbg32 临时诊断
-    if(ptr && (uintptr_t)ptr < 0x100000000ULL && !isCustomAddr(ptr))
-        printf_log(LOG_INFO, "[mdbg32] my32_free(%p) NOT-custom -> native free 将处理32位块!\\n", ptr);
     actual_free(ptr);
 }
 EXPORT void* my32_memalign(size_t align, size_t size)
@@ -204,6 +197,63 @@ REALLOCARRAY_OLD = """EXPORT void* my32_reallocarray(void* ptr, size_t nmemb, si
 REALLOCARRAY_NEW = """EXPORT void* my32_reallocarray(void* ptr, size_t nmemb, size_t size)
 {
     return actual_realloc(ptr, nmemb*size);
+}
+"""
+
+# mallochook.c：box32_* 去掉 FITS_IN_32BIT 短路，32 位 guest 一律 custom32。
+# 根因（mdbg32 实证）：box32 模式 PersonalityAddrLimit32Bit 后宿主 brk/heap 落低 4G，
+# box_malloc 返回 <4GB 指针 → FITS 短路直用宿主块；但 musl mallocng 的 arena meta
+# 在高区（0x7f…），运行中被 reserve/dynarec MAP_FIXED 波及后 prot=0 → 后续
+# native malloc/free 访问 meta 即 SIGSEGV（steamclient 崩溃族）。
+BOX32_CALLOC_OLD = """void* box32_calloc(size_t n, size_t s)
+{
+    void* ret = box_calloc(n, s);
+    if(ret && FITS_IN_32BIT(ret, n * s)) return ret;
+    box_free(ret);
+    malloc_trim(0);
+    ret = box_calloc(n, s);
+    if(ret && FITS_IN_32BIT(ret, n * s)) return ret;
+    box_free(ret);
+    return customCalloc32(n, s);
+}
+"""
+BOX32_CALLOC_NEW = """void* box32_calloc(size_t n, size_t s)
+{
+    // BOX64-BUILD: b14-box32-alloc: 宿主低址块 meta 不可靠，32 位 guest 一律 custom32
+    return customCalloc32(n, s);
+}
+"""
+BOX32_MALLOC_OLD = """void* box32_malloc(size_t s)
+{
+    void* ret = box_malloc(s);
+    if(ret && FITS_IN_32BIT(ret, s)) return ret;
+    box_free(ret);
+    malloc_trim(0);
+    ret = box_malloc(s);
+    if(ret && FITS_IN_32BIT(ret, s)) return ret;
+    box_free(ret);
+    return customMalloc32(s);
+}
+"""
+BOX32_MALLOC_NEW = """void* box32_malloc(size_t s)
+{
+    // BOX64-BUILD: b14-box32-alloc: 宿主低址块 meta 不可靠，32 位 guest 一律 custom32
+    return customMalloc32(s);
+}
+"""
+BOX32_MEMALIGN_OLD = """void* box32_memalign(size_t align, size_t s)
+{
+    void* ret = box_memalign(align, s);
+    if(ret && FITS_IN_32BIT(ret, s)) return ret;
+    box_free(ret);
+    malloc_trim(0);
+    return customMemAligned32(align, s);
+}
+"""
+BOX32_MEMALIGN_NEW = """void* box32_memalign(size_t align, size_t s)
+{
+    // BOX64-BUILD: b14-box32-alloc: 宿主低址块 meta 不可靠，32 位 guest 一律 custom32
+    return customMemAligned32(align, s);
 }
 """
 
@@ -657,6 +707,11 @@ static int my32_compare64_##A(const struct dirent* a, const struct dirent* b)   
     return ret;
 }
 '''),
+    ]),
+    ("src/mallochook.c", [
+        (BOX32_CALLOC_OLD, BOX32_CALLOC_NEW),
+        (BOX32_MALLOC_OLD, BOX32_MALLOC_NEW),
+        (BOX32_MEMALIGN_OLD, BOX32_MEMALIGN_NEW),
     ]),
 ]
 
