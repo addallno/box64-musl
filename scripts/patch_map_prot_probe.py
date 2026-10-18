@@ -40,14 +40,15 @@ JOBS = [
                 """        if(hint && hint->block && (hint->type == BTYPE_MAP) && hint->maxfree && (hint->is32bits==is32bits)) {
 """,
                 """        if(hint && hint->block && (hint->type == BTYPE_MAP) && hint->maxfree && (hint->is32bits==is32bits)) {
-            // BOX64-BUILD: map-prot-probe hint 路径 VMA 健康检查
-            if(probe_vma(hint) || probe_vma(hint->block) || probe_vma(hint->first)) {
-                fprintf(stderr, "[map128probe] VMA-missing hint=%p(%d) block=%p(%d) first=%p(%d) is32=%d maxfree=%u type=%d n=%d last=%d\\n",
-                    hint, probe_vma(hint),
-                    hint->block, probe_vma(hint->block),
-                    hint->first, probe_vma(hint->first),
-                    hint->is32bits, hint->maxfree, hint->type, n_blocks, last_block_index_map128);
-                fflush(stderr);
+            // BOX64-BUILD: map-prot-probe hint 路径全块逐页 prot+vma 检查（抓中间页 PROT_NONE/消失）
+            for(uintptr_t pg=(uintptr_t)hint->block; pg<(uintptr_t)hint->block+hint->size; pg+=0x1000) {
+                if(!probe_vma((void*)pg) || !(getProtection(pg)&PROT_READ)) {
+                    fprintf(stderr, "[map128probe] badpage=%p prot=%d vma=%d hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
+                        (void*)pg, getProtection(pg), probe_vma((void*)pg),
+                        hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map128);
+                    fflush(stderr);
+                    break;
+                }
             }
 """,
             ),
@@ -55,14 +56,15 @@ JOBS = [
                 """        if (hint && hint->block && hint->type == BTYPE_MAP64 && hint->maxfree && (hint->is32bits==is32bits)) {
 """,
                 """        if (hint && hint->block && hint->type == BTYPE_MAP64 && hint->maxfree && (hint->is32bits==is32bits)) {
-            // BOX64-BUILD: map-prot-probe hint 路径 VMA 健康检查
-            if(probe_vma(hint) || probe_vma(hint->block) || probe_vma(hint->first)) {
-                fprintf(stderr, "[map64probe] VMA-missing hint=%p(%d) block=%p(%d) first=%p(%d) is32=%d maxfree=%u type=%d n=%d last=%d\\n",
-                    hint, probe_vma(hint),
-                    hint->block, probe_vma(hint->block),
-                    hint->first, probe_vma(hint->first),
-                    hint->is32bits, hint->maxfree, hint->type, n_blocks, last_block_index_map64);
-                fflush(stderr);
+            // BOX64-BUILD: map-prot-probe hint 路径全块逐页 prot+vma 检查（抓中间页 PROT_NONE/消失）
+            for(uintptr_t pg=(uintptr_t)hint->block; pg<(uintptr_t)hint->block+hint->size; pg+=0x1000) {
+                if(!probe_vma((void*)pg) || !(getProtection(pg)&PROT_READ)) {
+                    fprintf(stderr, "[map64probe] badpage=%p prot=%d vma=%d hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
+                        (void*)pg, getProtection(pg), probe_vma((void*)pg),
+                        hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map64);
+                    fflush(stderr);
+                    break;
+                }
             }
 """,
             ),
