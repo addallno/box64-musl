@@ -143,7 +143,31 @@ JOBS = [
             uint32_t slices = p_blocks[i].size >> 6;
             for (uint32_t idx = p_blocks[i].lowest; idx < slices; ++idx) {
 """,
-                """            // BOX64-BUILD: map-prot-probe 主循环块健康检查（坏块跳过，防崩）
+                """            // BOX64-BUILD: map-prot-probe 主循环>4G块硬件 maps perms 快照（判簿记 vs 硬件脱钩）
+            if((uintptr_t)p_blocks[i].block > 0xffffffffUL) {
+                static int mb64 = 0;
+                if(mb64 < 16) {
+                    ++mb64;
+                    fprintf(stderr, "[block64maps] i=%d block=%p first=%p sz=%u lowest=%u maxfree=%u\\n",
+                        i, p_blocks[i].block, p_blocks[i].first, p_blocks[i].size, p_blocks[i].lowest, p_blocks[i].maxfree);
+                    FILE* bmf = fopen("/proc/self/maps", "r");
+                    if(bmf) {
+                        char bln[320];
+                        uintptr_t bb = (uintptr_t)p_blocks[i].block;
+                        while(fgets(bln, sizeof(bln), bmf)) {
+                            uintptr_t a = strtoul(bln, NULL, 16);
+                            char* dash = strchr(bln, '-');
+                            if(dash) {
+                                uintptr_t e = strtoul(dash+1, NULL, 16);
+                                if(bb >= a && bb < e) { fprintf(stderr, "[block64maps] %s", bln); break; }
+                            }
+                        }
+                        fclose(bmf);
+                    }
+                    fflush(stderr);
+                }
+            }
+            // BOX64-BUILD: map-prot-probe 主循环块健康检查（坏块跳过，防崩）
             {
                 int bad_blk = 0;
                 for(uintptr_t pg=(uintptr_t)p_blocks[i].block; pg<(uintptr_t)p_blocks[i].block+p_blocks[i].size; pg+=0x1000) {
@@ -317,6 +341,7 @@ JOBS = [
     fprintf(stderr, "[setprot128] p=%p sz=%lu setting=%d defered_p=%p dprot=0x%x nowprot=0x%x\\n",
         (void*)p, (unsigned long)allocsize, setting_prot, (void*)defered_prot_p,
         defered_prot_prot, memprot ? rb_get(memprot, (uintptr_t)p) : 0);
+    fflush(stderr);
     return ret;
 }
 // the BTYPE_MAP64 is a simple bitmap based allocator""",
@@ -337,6 +362,7 @@ JOBS = [
     fprintf(stderr, "[setprot64] p=%p sz=%lu setting=%d defered_p=%p dprot=0x%x nowprot=0x%x\\n",
         (void*)p, (unsigned long)allocsize, setting_prot, (void*)defered_prot_p,
         defered_prot_prot, memprot ? rb_get(memprot, (uintptr_t)p) : 0);
+    fflush(stderr);
 
     return ret;
 }""",
