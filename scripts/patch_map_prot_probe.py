@@ -73,6 +73,17 @@ JOBS = [
                         return NULL;
                     }
                 }
+                // BOX64-BUILD: map-prot-probe hint128 崩前状态快照（first 被踩/prot 突变抓手）
+                {
+                    static int bh128 = 0;
+                    if(bh128 < 20) {
+                        ++bh128;
+                        fprintf(stderr, "[hint128state] hint=%p block=%p first=%p sz=%lu lowest=%u maxfree=%u mapvma=%d mapprot=0x%x\\n",
+                            hint, hint->block, hint->first, (unsigned long)hint->size, hint->lowest, hint->maxfree,
+                            probe_vma(hint->first)==0, memprot ? rb_get(memprot,(uintptr_t)hint->first) : 0);
+                        fflush(stderr);
+                    }
+                }
             }
 """,
             ),
@@ -111,6 +122,17 @@ JOBS = [
                     if(!vma_ok) {
                         mutex_unlock(&mutex_blocks);
                         return NULL;
+                    }
+                }
+                // BOX64-BUILD: map-prot-probe hint64 崩前状态快照（first 被踩/prot 突变抓手）
+                {
+                    static int bh64 = 0;
+                    if(bh64 < 20) {
+                        ++bh64;
+                        fprintf(stderr, "[hint64state] hint=%p block=%p first=%p sz=%lu lowest=%u maxfree=%u mapvma=%d mapprot=0x%x\\n",
+                            hint, hint->block, hint->first, (unsigned long)hint->size, hint->lowest, hint->maxfree,
+                            probe_vma(hint->first)==0, memprot ? rb_get(memprot,(uintptr_t)hint->first) : 0);
+                        fflush(stderr);
                     }
                 }
             }
