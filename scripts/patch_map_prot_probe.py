@@ -338,9 +338,13 @@ JOBS = [
             setProtection((uintptr_t)p, allocsize, PROT_READ | PROT_WRITE);
     }
     // BOX64-BUILD: map-prot-probe newBlock setProtection/defer 状态（单槽 defer 覆盖丢失=prot0 抓手）
-    fprintf(stderr, "[setprot128] p=%p sz=%lu setting=%d defered_p=%p dprot=0x%x nowprot=0x%x\\n",
-        (void*)p, (unsigned long)allocsize, setting_prot, (void*)defered_prot_p,
-        defered_prot_prot, memprot ? rb_get(memprot, (uintptr_t)p) : 0);
+    {
+        uint32_t pr_end = 0; uintptr_t pr_bend = 0;
+        int pr_has = memprot ? rb_get_end(memprot, (uintptr_t)p, &pr_end, &pr_bend) : 0;
+        fprintf(stderr, "[setprot128] p=%p sz=%lu setting=%d defered_p=%p dprot=0x%x nowprot=0x%x endprot=0x%x hasend=%d bend=%p\\n",
+            (void*)p, (unsigned long)allocsize, setting_prot, (void*)defered_prot_p,
+            defered_prot_prot, memprot ? rb_get(memprot, (uintptr_t)p) : 0, pr_end, pr_has, (void*)pr_bend);
+    }
     fflush(stderr);
     return ret;
 }
@@ -359,9 +363,13 @@ JOBS = [
         }
     }
     // BOX64-BUILD: map-prot-probe newBlock setProtection/defer 状态（单槽 defer 覆盖丢失=prot0 抓手）
-    fprintf(stderr, "[setprot64] p=%p sz=%lu setting=%d defered_p=%p dprot=0x%x nowprot=0x%x\\n",
-        (void*)p, (unsigned long)allocsize, setting_prot, (void*)defered_prot_p,
-        defered_prot_prot, memprot ? rb_get(memprot, (uintptr_t)p) : 0);
+    {
+        uint32_t pr_end = 0; uintptr_t pr_bend = 0;
+        int pr_has = memprot ? rb_get_end(memprot, (uintptr_t)p, &pr_end, &pr_bend) : 0;
+        fprintf(stderr, "[setprot64] p=%p sz=%lu setting=%d defered_p=%p dprot=0x%x nowprot=0x%x endprot=0x%x hasend=%d bend=%p\\n",
+            (void*)p, (unsigned long)allocsize, setting_prot, (void*)defered_prot_p,
+            defered_prot_prot, memprot ? rb_get(memprot, (uintptr_t)p) : 0, pr_end, pr_has, (void*)pr_bend);
+    }
     fflush(stderr);
 
     return ret;
