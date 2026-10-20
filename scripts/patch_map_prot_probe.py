@@ -440,6 +440,46 @@ JOBS = [
     }
 """,
             ),
+    (
+        """void setProtection(uintptr_t addr, size_t size, uint32_t prot)
+{
+    size = ALIGN(size);
+    LOCK_PROT();
+    ++setting_prot;
+    uintptr_t cur = ALIGN_DOWN(addr);
+    uintptr_t end = ALIGN(cur+size);
+    rb_set(mapallmem, cur, end, MEM_ALLOCATED);
+    rb_set(memprot, cur, end, prot);
+    --setting_prot;
+    UNLOCK_PROT();
+}
+""",
+        """void setProtection(uintptr_t addr, size_t size, uint32_t prot)
+{
+    size = ALIGN(size);
+    LOCK_PROT();
+    ++setting_prot;
+    uintptr_t cur = ALIGN_DOWN(addr);
+    uintptr_t end = ALIGN(cur+size);
+    int rs1 = rb_set(mapallmem, cur, end, MEM_ALLOCATED);
+    int rs2 = rb_set(memprot, cur, end, prot);
+    // BOX64-BUILD: map-prot-probe setProtection rb_set 返回值（>4G，抓写入丢失/截断）
+    if(box64_is32bits && cur > 0xffffffffULL) {
+        static int sp_n = 0;
+        if(sp_n < 32) {
+            uint32_t v = 0; uintptr_t b = 0;
+            int h = rb_get_end(memprot, cur, &v, &b);
+            ++sp_n;
+            fprintf(stderr, "[setp64chk] cur=%p end=%p prot=0x%x rs1=%d rs2=%d hasend=%d v=0x%x b=%p\\n",
+                (void*)cur, (void*)end, prot, rs1, rs2, h, v, (void*)b);
+            fflush(stderr);
+        }
+    }
+    --setting_prot;
+    UNLOCK_PROT();
+}
+""",
+    ),
         ],
     ),
     (

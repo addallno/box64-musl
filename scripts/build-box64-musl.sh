@@ -416,7 +416,8 @@ grep -q 'block64maps] i=' "$WORK/box64/src/custommem.c" || fail_check "block64ma
 grep -q 'memunfree] addr=' "$WORK/box64/src/custommem.c" || fail_check "memunfree 未注入 custommem.c freeProtection"
 grep -q 'memungen0] addr=' "$WORK/box64/src/custommem.c" || fail_check "memungen0 未注入 custommem.c"
 grep -q 'memunelf] addr=' "$WORK/box64/src/custommem.c" || fail_check "memunelf 未注入 custommem.c"
-echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok map-prot-probe=ok openprobe=ok lmprobe=ok freeprobe=ok boxmapprobe=ok dellistprobe=ok dynarec-mmap-lock=ok setprot=ok hintstate=ok block64maps=ok memun=ok"
+grep -q 'setp64chk] cur=' "$WORK/box64/src/custommem.c" || fail_check "setp64chk 未注入 custommem.c setProtection"
+echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok map-prot-probe=ok openprobe=ok lmprobe=ok freeprobe=ok boxmapprobe=ok dellistprobe=ok dynarec-mmap-lock=ok setprot=ok hintstate=ok block64maps=ok memun=ok setp64chk=ok"
 
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
