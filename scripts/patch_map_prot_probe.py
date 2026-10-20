@@ -367,6 +367,71 @@ JOBS = [
     return ret;
 }""",
             ),
+            (
+                """    dynarec_log(LOG_DEBUG, "freeProtection %p:%p\\n", (void*)addr, (void*)(addr+size-1));
+    LOCK_PROT();
+    rb_unset(mapallmem, addr, addr+size);
+    rb_unset(memprot, addr, addr+size);
+""",
+                """    dynarec_log(LOG_DEBUG, "freeProtection %p:%p\\n", (void*)addr, (void*)(addr+size-1));
+    // BOX64-BUILD: map-prot-probe memprot 清除时间线（>4G 池块簿记 prot=0 元凶抓手）
+    if(box64_is32bits && addr>0xffffffffULL) {
+        static int mu_f = 0;
+        if(mu_f < 32) { ++mu_f; fprintf(stderr, "[memunfree] addr=%p sz=%lu caller=%p\\n", (void*)addr, (unsigned long)size, __builtin_return_address(0)); fflush(stderr); }
+    }
+    LOCK_PROT();
+    rb_unset(mapallmem, addr, addr+size);
+    rb_unset(memprot, addr, addr+size);
+""",
+            ),
+            (
+                """    if(!prot) {
+        LOCK_PROT();
+        rb_set(mapallmem, addr, addr+size, flag);
+        rb_unset(memprot, addr, addr+size);
+        UNLOCK_PROT();
+    }
+    else{//SetProtection
+""",
+                """    if(!prot) {
+        // BOX64-BUILD: map-prot-probe memprot 清除时间线（setProtection_generic prot=0）
+        if(box64_is32bits && addr>0xffffffffULL) {
+            static int mu_g = 0;
+            if(mu_g < 32) { ++mu_g; fprintf(stderr, "[memungen0] addr=%p sz=%lu\\n", (void*)addr, (unsigned long)size); fflush(stderr); }
+        }
+        LOCK_PROT();
+        rb_set(mapallmem, addr, addr+size, flag);
+        rb_unset(memprot, addr, addr+size);
+        UNLOCK_PROT();
+    }
+    else{//SetProtection
+""",
+            ),
+            (
+                """    if(prot)
+        setProtection_generic(addr, size, prot, MEM_ELF);
+    else {
+        LOCK_PROT();
+        rb_set(mapallmem, addr, addr+size, MEM_ELF);
+        rb_unset(memprot, addr, addr+size);
+        UNLOCK_PROT();
+    }
+""",
+                """    if(prot)
+        setProtection_generic(addr, size, prot, MEM_ELF);
+    else {
+        // BOX64-BUILD: map-prot-probe memprot 清除时间线（setProtection_elf prot=0）
+        if(box64_is32bits && addr>0xffffffffULL) {
+            static int mu_e = 0;
+            if(mu_e < 32) { ++mu_e; fprintf(stderr, "[memunelf] addr=%p sz=%lu\\n", (void*)addr, (unsigned long)size); fflush(stderr); }
+        }
+        LOCK_PROT();
+        rb_set(mapallmem, addr, addr+size, MEM_ELF);
+        rb_unset(memprot, addr, addr+size);
+        UNLOCK_PROT();
+    }
+""",
+            ),
         ],
     ),
     (

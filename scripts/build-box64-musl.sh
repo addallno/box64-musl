@@ -413,7 +413,10 @@ grep -q 'setprot128] p=' "$WORK/box64/src/custommem.c" || fail_check "setprot128
 grep -q 'hint64state] hint=' "$WORK/box64/src/custommem.c" || fail_check "hint64state 未注入 custommem.c"
 grep -q 'hint128state] hint=' "$WORK/box64/src/custommem.c" || fail_check "hint128state 未注入 custommem.c"
 grep -q 'block64maps] i=' "$WORK/box64/src/custommem.c" || fail_check "block64maps 未注入 custommem.c"
-echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok map-prot-probe=ok openprobe=ok lmprobe=ok freeprobe=ok boxmapprobe=ok dellistprobe=ok dynarec-mmap-lock=ok setprot=ok hintstate=ok block64maps=ok"
+grep -q 'memunfree] addr=' "$WORK/box64/src/custommem.c" || fail_check "memunfree 未注入 custommem.c freeProtection"
+grep -q 'memungen0] addr=' "$WORK/box64/src/custommem.c" || fail_check "memungen0 未注入 custommem.c"
+grep -q 'memunelf] addr=' "$WORK/box64/src/custommem.c" || fail_check "memunelf 未注入 custommem.c"
+echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok map-prot-probe=ok openprobe=ok lmprobe=ok freeprobe=ok boxmapprobe=ok dellistprobe=ok dynarec-mmap-lock=ok setprot=ok hintstate=ok block64maps=ok memun=ok"
 
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""
