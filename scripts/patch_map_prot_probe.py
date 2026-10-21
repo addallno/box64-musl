@@ -463,8 +463,8 @@ JOBS = [
     uintptr_t end = ALIGN(cur+size);
     int rs1 = rb_set(mapallmem, cur, end, MEM_ALLOCATED);
     int rs2 = rb_set(memprot, cur, end, prot);
-    // BOX64-BUILD: map-prot-probe setProtection rb_set 返回值（>4G，抓写入丢失/截断）
-    if(box64_is32bits && cur > 0xffffffffULL) {
+    // BOX64-BUILD: map-prot-probe setProtection rb_set 返回值（>4G 128K池块，抓写入丢失/截断）
+    if(box64_is32bits && cur > 0xffffffffULL && size <= 0x20000) {
         static int sp_n = 0;
         if(sp_n < 32) {
             uint32_t v = 0; uintptr_t b = 0;
