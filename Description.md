@@ -154,3 +154,28 @@ bionic 环境，不代表 q57 场景）：
   新版 1 received / 0% loss ✓；Termux 侧（bionic 直跑）32 位 busybox/dash
   新旧均 SIGSEGV，属该环境既有状态，与 q57（proot 内）无关。
 - 结论：gai 修复对 64 位 ping 有效、对 box32/q57 **无回归**。
+
+## box32 +login 崩溃族修复（2026-10-21，正式 bin cdf72c02）
+
+### 崩溃 A：野 path open SIGSEGV（已防御）
+- 链路：guest int80 sys_open → my_open → box64_pathmap/isProcSelf → strncmp 野读崩。
+- **patch_open_defense.py**（永久，不受 PROBE 门控）：open 前 mincore 检查 pathname
+  指针页，不存在则 EFAULT 返回。每轮命中 1 次，崩溃消失。
+
+### 崩溃 B：map64/map128 池块簿记 prot=0 + 0x7f 段 ERR=5（修复+缓解）
+- 根因链（probe17-20 实证）：newBlock 三处（map128/map64/LIST）setting_prot>0 时
+  走 defer 单槽分支，mutex_blocks 外裸写 defered_prot_* 与 UNLOCK_PROT flush 并发
+  竞态覆盖 → 被覆盖块 memprot 簿记永久丢失（rb_get_end hasend=0）。
+- **patch_newblock_defer_fix.py**：三处去 defer 分支无条件 setProtection。
+- 对照实证：无探针 bin 无 open-defense 时 3/3 轮 SEGV（崩溃 A+B 连锁）；
+  +open-defense 后 8/8 轮 0 崩溃——崩溃 A 疑为崩溃 B 触发器。
+- badpage 簿记 prot=0 残留无害（硬件 rwxp，block64maps 实证）；清除通道仍有
+  未探明路径（memun 三通道全 0），后续攻坚点。
+
+### 构建开关
+- `PROBE=false`（workflow input）：跳过诊断探针（patch_map_prot_probe +
+  dynarec_mmap_lock），只含 fix——对照/正式构建用。
+- 正式 bin：远端 box64-bin=cdf72c02（CI 39609638227，probe=false）；
+  旧 d52e3698 备份 box64-bin.d52e3698-backup3。
+- 32 位 +login addallno：8 轮 SEGV=0/ABRT=0（90s timeout，rc=124）；
+  64 位无回归（SEGV=0）。
