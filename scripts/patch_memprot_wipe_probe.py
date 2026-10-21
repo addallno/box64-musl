@@ -2,7 +2,7 @@
 # badpage 第 4 清除通道探针（probe21）：
 # setp64chk 已证 0x10718x 族写入成功（锁内 hasend=1）后被清，memun 三通道全 0。
 # 本探针下沉到 rbtree 层：memprot 树 + 相交 [0x107000000,0x108000000) 的
-# rb_set_64/rb_unset 全量打印 caller，抓"谁最后写了 prot=0"；
+# rb_set_64/rb_unset 全量打印 caller（badpage 实际在 0x100000000 族，范围已修正），抓"谁最后写了 prot=0"；
 # 另在 refreshProtection 抓 prot&~PROT_CUSTOM==0 的 mprotect PROT_NONE（硬件 ERR=5 上膛时刻）。
 # 哨兵：BOX64-BUILD: memprot-wipe-probe（幂等）
 import sys
@@ -17,7 +17,7 @@ static int wipeprobe_memprot(const char* n)
 }
 static int wipeprobe_hit(uintptr_t s, uintptr_t e)
 {
-    return s < 0x108000000ULL && e > 0x107000000ULL;
+    return s < 0x101000000ULL && e > 0x100000000ULL;
 }
 """
 
