@@ -43,13 +43,13 @@ JOBS = [
             // BOX64-BUILD: map-prot-probe hint 路径全块逐页 vma+prot 检查（vma=mincore；prot=簿记直读 rb_get）
             for(uintptr_t pg=(uintptr_t)hint->block; pg<(uintptr_t)hint->block+hint->size; pg+=0x1000) {
                 int vma_ok = (probe_vma((void*)pg) == 0);
-                uint32_t pr = memprot ? rb_get(memprot, pg) : 0;
+                uint32_t pr = 0, pr_end = 0; int pr_has = memprot ? rb_get_end(memprot, pg, &pr, &pr_end) : 0;
                 if(!vma_ok || !(pr & PROT_READ)) {
                     static int bad_cnt = 0;
                     if(bad_cnt < 40) {
                         ++bad_cnt;
-                        fprintf(stderr, "[map128probe] badpage=%p vma=%d prot=0x%x hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
-                            (void*)pg, vma_ok, pr, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map128);
+                        fprintf(stderr, "[map128probe] badpage=%p vma=%d prot=0x%x hint=%p block=%p first=%p lowest=%u n=%d last=%d hasend=%d\\n",
+                            (void*)pg, vma_ok, pr, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map128, pr_has);
                         if(bad_cnt <= 3) {
                             FILE* mf = fopen("/proc/self/maps", "r");
                             if(mf) {
@@ -94,13 +94,13 @@ JOBS = [
             // BOX64-BUILD: map-prot-probe hint 路径全块逐页 vma+prot 检查（vma=mincore；prot=簿记直读 rb_get）
             for(uintptr_t pg=(uintptr_t)hint->block; pg<(uintptr_t)hint->block+hint->size; pg+=0x1000) {
                 int vma_ok = (probe_vma((void*)pg) == 0);
-                uint32_t pr = memprot ? rb_get(memprot, pg) : 0;
+                uint32_t pr = 0, pr_end = 0; int pr_has = memprot ? rb_get_end(memprot, pg, &pr, &pr_end) : 0;
                 if(!vma_ok || !(pr & PROT_READ)) {
                     static int bad_cnt = 0;
                     if(bad_cnt < 40) {
                         ++bad_cnt;
-                        fprintf(stderr, "[map64probe] badpage=%p vma=%d prot=0x%x hint=%p block=%p first=%p lowest=%u n=%d last=%d\\n",
-                            (void*)pg, vma_ok, pr, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map64);
+                        fprintf(stderr, "[map64probe] badpage=%p vma=%d prot=0x%x hint=%p block=%p first=%p lowest=%u n=%d last=%d hasend=%d\\n",
+                            (void*)pg, vma_ok, pr, hint, hint->block, hint->first, hint->lowest, n_blocks, last_block_index_map64, pr_has);
                         if(bad_cnt <= 3) {
                             FILE* mf = fopen("/proc/self/maps", "r");
                             if(mf) {
@@ -172,13 +172,13 @@ JOBS = [
                 int bad_blk = 0;
                 for(uintptr_t pg=(uintptr_t)p_blocks[i].block; pg<(uintptr_t)p_blocks[i].block+p_blocks[i].size; pg+=0x1000) {
                     int vma_ok = (probe_vma((void*)pg) == 0);
-                    uint32_t pr = memprot ? rb_get(memprot, pg) : 0;
+                    uint32_t pr = 0, pr_end = 0; int pr_has = memprot ? rb_get_end(memprot, pg, &pr, &pr_end) : 0;
                     if(!vma_ok || !(pr & PROT_READ)) {
                         static int bad_cnt_m64 = 0;
                         if(bad_cnt_m64 < 40) {
                             ++bad_cnt_m64;
-                            fprintf(stderr, "[map64mprobe] badpage=%p vma=%d prot=0x%x i=%d block=%p first=%p\\n",
-                                (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first);
+                            fprintf(stderr, "[map64mprobe] badpage=%p vma=%d prot=0x%x hasend=%d i=%d block=%p first=%p\\n",
+                                (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first, pr_has);
                             if(bad_cnt_m64 <= 3) {
                                 FILE* mf = fopen("/proc/self/maps", "r");
                                 if(mf) {
@@ -219,13 +219,13 @@ JOBS = [
                 int bad_blk = 0;
                 for(uintptr_t pg=(uintptr_t)p_blocks[i].block; pg<(uintptr_t)p_blocks[i].block+p_blocks[i].size; pg+=0x1000) {
                     int vma_ok = (probe_vma((void*)pg) == 0);
-                    uint32_t pr = memprot ? rb_get(memprot, pg) : 0;
+                    uint32_t pr = 0, pr_end = 0; int pr_has = memprot ? rb_get_end(memprot, pg, &pr, &pr_end) : 0;
                     if(!vma_ok || !(pr & PROT_READ)) {
                         static int bad_cnt_m128 = 0;
                         if(bad_cnt_m128 < 40) {
                             ++bad_cnt_m128;
-                            fprintf(stderr, "[map128mprobe] badpage=%p vma=%d prot=0x%x i=%d block=%p first=%p\\n",
-                                (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first);
+                            fprintf(stderr, "[map128mprobe] badpage=%p vma=%d prot=0x%x hasend=%d i=%d block=%p first=%p\\n",
+                                (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first, pr_has);
                             if(bad_cnt_m128 <= 3) {
                                 FILE* mf = fopen("/proc/self/maps", "r");
                                 if(mf) {
