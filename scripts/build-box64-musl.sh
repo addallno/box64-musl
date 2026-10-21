@@ -382,8 +382,13 @@ python3 $GITHUB_WORKSPACE/scripts/patch_box32_probe.py $WORK/box64
 
 echo "==> 打 box32-mmap-guard 补丁（box32_dynarec_mmap 早期 mapallmem=NULL fallback，修 32-bit 启动 SIGSEGV）"
 python3 $GITHUB_WORKSPACE/scripts/patch_box32_mmap_guard.py $WORK/box64
+# PROBE=false 时跳过诊断探针补丁（崩溃B修复效果对照构建，fix 仍执行）
+if [ "${PROBE:-true}" != "false" ]; then
 python3 $GITHUB_WORKSPACE/scripts/patch_map_prot_probe.py $WORK/box64
 python3 $GITHUB_WORKSPACE/scripts/patch_dynarec_mmap_lock.py $WORK/box64
+else
+  echo "==> 跳过诊断探针补丁 (PROBE=false 对照构建)"
+fi
 python3 $GITHUB_WORKSPACE/scripts/patch_newblock_defer_fix.py $WORK/box64
 
 echo "==> [自检] patch 链关键不变量（防锚文本漂移/顺序破坏悄悄失效）"
@@ -401,6 +406,7 @@ USE_LINE=$(grep -n 'ai->ai_flags = oflags | BOX64_GAI_FB_FLAG' "$CHECK_SRC" | he
 grep -q 'box64_dns_fallback' "$CHECK_SRC" || fail_check "patch_gai 注入的 fallback 缺失（链序被破坏）"
 grep -q 'EXPORT void\* my___sched_cpualloc(x64emu_t\* emu' "$CHECK_SRC" || fail_check "my___sched_cpualloc 缺失或无 emu"
 grep -q 'BOX64_MUTEX_DEBUG' "$WORK/box64/src/wrapped/wrappedlibpthread.c" || fail_check "md-enter 未接 BOX64_MUTEX_DEBUG 门控"
+if [ "${PROBE:-true}" != "false" ]; then
 grep -q 'BOX64-BUILD: map-prot-probe' "$WORK/box64/src/custommem.c" || fail_check "map-prot-probe 未注入 custommem.c"
 grep -q 'BOX64-BUILD: map-prot-probe' "$WORK/box64/src/custommmap.c" || fail_check "map-prot-probe 未注入 custommmap.c"
 grep -q 'openprobe] bad-path' "$WORK/box64/src/wrapped/wrappedlibc.c" || fail_check "openprobe 未注入 wrappedlibc.c my_open"
@@ -418,8 +424,10 @@ grep -q 'memunfree] addr=' "$WORK/box64/src/custommem.c" || fail_check "memunfre
 grep -q 'memungen0] addr=' "$WORK/box64/src/custommem.c" || fail_check "memungen0 未注入 custommem.c"
 grep -q 'memunelf] addr=' "$WORK/box64/src/custommem.c" || fail_check "memunelf 未注入 custommem.c"
 grep -q 'setp64chk] cur=' "$WORK/box64/src/custommem.c" || fail_check "setp64chk 未注入 custommem.c setProtection"
+echo "探针自检: map-prot-probe=ok openprobe=ok lmprobe=ok freeprobe=ok boxmapprobe=ok dellistprobe=ok dynarec-mmap-lock=ok setprot=ok hintstate=ok block64maps=ok memun=ok setp64chk=ok"
+fi
 grep -q 'newblock-defer-fix' "$WORK/box64/src/custommem.c" || fail_check "newblock-defer-fix 未注入 custommem.c"
-echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok map-prot-probe=ok openprobe=ok lmprobe=ok freeprobe=ok boxmapprobe=ok dellistprobe=ok dynarec-mmap-lock=ok setprot=ok hintstate=ok block64maps=ok memun=ok setp64chk=ok newblock-defer-fix=ok"
+echo "自检通过: GOM freeaddrinfo=ok emu首参=ok 魔数宏顺序=ok fallback/sched/mutex=ok newblock-defer-fix=ok"
 
 echo "==> 生成 musl 缺失符号 stub（gen-libc-stubs.py）"
 MUSL_SYMS_OPT=""

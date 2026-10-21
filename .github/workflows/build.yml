@@ -19,6 +19,9 @@ on:
         description: '禁用全部自定义补丁（原版判别构建）'
         type: boolean
         default: false
+      probe:
+        description: '诊断探针开关（false = 只含 fix 的对照构建）'
+        default: 'true'
   schedule:
     # 批次3 #16：每周一构建 pin 基线（scripts/box64-pin.txt）+ main 对照，防上游漂移无声失败
     - cron: '0 3 * * 1'
@@ -66,6 +69,7 @@ jobs:
           STATICBUILD: ${{ steps.ref.outputs.static }}
           DEBUG_KEEP_SYM: ${{ inputs.debug }}
           NOPATCH: ${{ inputs.nopatch }}
+          PROBE: ${{ inputs.probe || 'true' }}
           MUSL_CACHE_DIR: /tmp/musl-cross-cache
           CCACHE_DIR: /tmp/ccache
         run: bash scripts/build-box64-musl.sh
