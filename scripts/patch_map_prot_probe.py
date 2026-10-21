@@ -43,7 +43,7 @@ JOBS = [
             // BOX64-BUILD: map-prot-probe hint 路径全块逐页 vma+prot 检查（vma=mincore；prot=簿记直读 rb_get）
             for(uintptr_t pg=(uintptr_t)hint->block; pg<(uintptr_t)hint->block+hint->size; pg+=0x1000) {
                 int vma_ok = (probe_vma((void*)pg) == 0);
-                uint32_t pr = 0, pr_end = 0; int pr_has = memprot ? rb_get_end(memprot, pg, &pr, &pr_end) : 0;
+                uint32_t pr = 0; uintptr_t pr_end = 0; int pr_has = memprot ? rb_get_end(memprot, pg, &pr, &pr_end) : 0;
                 if(!vma_ok || !(pr & PROT_READ)) {
                     static int bad_cnt = 0;
                     if(bad_cnt < 40) {
@@ -94,7 +94,7 @@ JOBS = [
             // BOX64-BUILD: map-prot-probe hint 路径全块逐页 vma+prot 检查（vma=mincore；prot=簿记直读 rb_get）
             for(uintptr_t pg=(uintptr_t)hint->block; pg<(uintptr_t)hint->block+hint->size; pg+=0x1000) {
                 int vma_ok = (probe_vma((void*)pg) == 0);
-                uint32_t pr = 0, pr_end = 0; int pr_has = memprot ? rb_get_end(memprot, pg, &pr, &pr_end) : 0;
+                uint32_t pr = 0; uintptr_t pr_end = 0; int pr_has = memprot ? rb_get_end(memprot, pg, &pr, &pr_end) : 0;
                 if(!vma_ok || !(pr & PROT_READ)) {
                     static int bad_cnt = 0;
                     if(bad_cnt < 40) {
@@ -172,7 +172,7 @@ JOBS = [
                 int bad_blk = 0;
                 for(uintptr_t pg=(uintptr_t)p_blocks[i].block; pg<(uintptr_t)p_blocks[i].block+p_blocks[i].size; pg+=0x1000) {
                     int vma_ok = (probe_vma((void*)pg) == 0);
-                    uint32_t pr = 0, pr_end = 0; int pr_has = memprot ? rb_get_end(memprot, pg, &pr, &pr_end) : 0;
+                    uint32_t pr = 0; uintptr_t pr_end = 0; int pr_has = memprot ? rb_get_end(memprot, pg, &pr, &pr_end) : 0;
                     if(!vma_ok || !(pr & PROT_READ)) {
                         static int bad_cnt_m64 = 0;
                         if(bad_cnt_m64 < 40) {
@@ -219,7 +219,7 @@ JOBS = [
                 int bad_blk = 0;
                 for(uintptr_t pg=(uintptr_t)p_blocks[i].block; pg<(uintptr_t)p_blocks[i].block+p_blocks[i].size; pg+=0x1000) {
                     int vma_ok = (probe_vma((void*)pg) == 0);
-                    uint32_t pr = 0, pr_end = 0; int pr_has = memprot ? rb_get_end(memprot, pg, &pr, &pr_end) : 0;
+                    uint32_t pr = 0; uintptr_t pr_end = 0; int pr_has = memprot ? rb_get_end(memprot, pg, &pr, &pr_end) : 0;
                     if(!vma_ok || !(pr & PROT_READ)) {
                         static int bad_cnt_m128 = 0;
                         if(bad_cnt_m128 < 40) {
