@@ -3,10 +3,11 @@
 ## 目标
 `box64-bin ./steamcmd +login addallno +quit` 联网登录跑通（musl box64，非 glibc）。
 
-## 现状（bin d52e3698，2026-10-17；历史基线 034a064b）
+## 现状（bin cdf72c02，2026-10-21；上一里程碑 d52e3698，基线 034a064b）
 - **主线达成**：72+ 轮测试 37-24/40 全 OK（缓存凭证登录→user info→Unloading→退出），0 崩溃
+- **崩溃 A/B 双修复后**：32 位 +login addallno 8/8 轮 SEGV=0/ABRT=0（90s timeout rc=124 属正常）；64 位无回归
 - 残余：网络慢致 Steam Public 登录偶超 45-60s（非 box64 bug）；/data 99% 满致 breakpad Fatal（清 `$TMPDIR/dumps*` 恢复）
-- 备份 bin：`bin/box64-bin.e6d931a7-backup`（上一里程碑）、`bin/box64-bin.50c72a51-backup`（基线）
+- 备份 bin：`bin/box64-bin.d52e3698-backup3`（B-14 里程碑）、`bin/box64-bin.8f441255-backup2`、`bin/box64-bin.034a064b-backup2`（基线）
 
 ## 运行命令
 ```bash
@@ -67,3 +68,15 @@ timeout -k 5 90 ~/openwork/box64-test/bin/box64-bin.probe ./steamcmd +quit
 - **修复**（commit 4e0f55b，patch_b14_box32_alloc.py 新增 mallochook.c 段）：box32_malloc/calloc/memalign 去掉 FITS 短路，一律 customMalloc32/customCalloc32/customMemAligned32（低 4G 受控块，与 box32_free 的 isCustomAddr 路径配对）。realloc/free/usable_size 保持原逻辑。
 - **验证**（bin d52e3698）：32 位 SIGSEGV 全文 0 条、Fatal=0；64 位 2 轮 rc=0 干净。已转正 box64-bin（备份 box64-bin.8f441255-backup2）。
 - **残留（下一攻坚）**：32 位跑到 "Loading Steam API..." 后挂起 rc=124（150s 轮 stdout 只到 Logging directory 即停），卡点待 LOG=3 定位（疑网络 update check / mutex）。
+
+## box32 崩溃 A/B 修复（2026-10-21，正式 bin cdf72c02，CI 39609638227）
+### 崩溃 A：野 path open SIGSEGV（已防御）
+- 链路：guest int80 sys_open → my_open → pathmap/isProcSelf → strncmp 野读崩（lr=crashhandler+0x80a63 形态）。
+- **patch_open_defense.py**（永久补丁，不受 PROBE 门控）：open 前 mincore 检查 pathname 指针页，不存在 EFAULT 返回。每轮命中 1 次即防住。
+### 崩溃 B：池块簿记 prot=0 + 0x7f 段 ERR=5（defer fix + open-defense 联合消除）
+- 根因：newBlock 三处（map128 763/map64 891/LIST 1036）setting_prot>0 走 defer 单槽分支，mutex_blocks 外裸写 defered_prot_* 与 UNLOCK_PROT flush 并发竞态覆盖 → 簿记永久丢失（rb_get_end hasend=0）。**patch_newblock_defer_fix.py** 三处改无条件 setProtection。
+- 对照实证：PROBE=false 无 open-defense（bin bfee8f35）3/3 轮 SEGV（A+B 连锁）；+open-defense（cdf72c02）8/8 轮 0 崩溃——**崩溃 A 疑为崩溃 B 触发器**。
+- 残留：badpage 簿记 prot=0（硬件 rwxp 无害）清除通道仍未探明（memun 三通道全 0），下一攻坚。
+### 构建开关
+- workflow input `probe`（默认 true）→ env `PROBE`：false 跳过 patch_map_prot_probe + dynarec_mmap_lock 自检（fix/open-defense 恒执行）。正式构建用 `gh workflow run build-box64 -F probe=false -F debug=false -F nopatch=false`。
+- 远端 probe bin 全链 probe3..20/fix1/fixonly/fix2 保留；正式 `bin/box64-bin`=cdf72c02。
