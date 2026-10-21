@@ -424,7 +424,7 @@ grep -q 'memunfree] addr=' "$WORK/box64/src/custommem.c" || fail_check "memunfre
 grep -q 'memungen0] addr=' "$WORK/box64/src/custommem.c" || fail_check "memungen0 未注入 custommem.c"
 grep -q 'memunelf] addr=' "$WORK/box64/src/custommem.c" || fail_check "memunelf 未注入 custommem.c"
 grep -q 'setp64chk] cur=' "$WORK/box64/src/custommem.c" || fail_check "setp64chk 未注入 custommem.c setProtection"
-echo "探针自检: map-prot-probe=ok openprobe=ok lmprobe=ok freeprobe=ok boxmapprobe=ok dellistprobe=ok dynarec-mmap-lock=ok setprot=ok hintstate=ok block64maps=ok memun=ok setp64chk=ok"
+echo "探针自检: map-prot-probe=ok lmprobe=ok freeprobe=ok boxmapprobe=ok dellistprobe=ok dynarec-mmap-lock=ok setprot=ok hintstate=ok block64maps=ok memun=ok setp64chk=ok"
 fi
 grep -q 'newblock-defer-fix' "$WORK/box64/src/custommem.c" || fail_check "newblock-defer-fix 未注入 custommem.c"
 grep -q 'open-defense' "$WORK/box64/src/wrapped/wrappedlibc.c" || fail_check "open-defense 未注入 wrappedlibc.c my_open"
