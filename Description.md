@@ -179,3 +179,36 @@ bionic 环境，不代表 q57 场景）：
   旧 d52e3698 备份 box64-bin.d52e3698-backup3。
 - 32 位 +login addallno：8 轮 SEGV=0/ABRT=0（90s timeout，rc=124）；
   64 位无回归（SEGV=0）。
+
+## badpage「第 4 清除通道」调查结论（2026-10-21，probe21-25）
+
+### 结论：清除通道不存在，badpage=块内空闲页无簿记条目（无害）
+- probe24 决定性数据：badpage 232-240 条/轮**全部 hasend=0**（memprot rbtree 无条目），
+  无任何 data=0 条目存在；四段探针（map64/map128 × hint/mprobe）均 0 条 hasend=1。
+- probe25 扩展 wipeprobe 至 0x7f 段（map128 族 0x7f98d9/0x7fa4f4 badpage 所在域）：
+  - munset=2/轮，均为 4K 正常 free（caller 0x34815068），**与 badpage 族无关**
+  - memset data=0：**0 条**（0x7f 段从无清除类写入）
+  - 0x100000000 族 memset=28/轮，全部 data=3/7（正常 setProtection 链），覆盖 0x100024000+
+    已用段；badpage 段（0x100000000-0x10001f000）恰在未写区间——空闲页无条目=自洽。
+- refreshProtection 对无条目页 rb_get_end 失败→**跳过 mprotect**（不会 PROT_NONE 上膛）；
+  refprot-none 探针全程 0 命中；vma=1 硬件保持原 prot；SEGV 持续 0（正式 bin cdf72c02 8/8 +
+  probe24/25 多轮）。
+
+### 附带排除
+- 崩溃 B 的 newBlock defer 竞态（已修）与"簿记被清"无关：那是创建时未写入的另一机制。
+- 0x10718x 族当年"写入成功后消失"（setp64chk hasend=1→后读 0）在 probe24/25 未复现
+  （badpage 地址族仅 0x100000000 与 0x7f98d9/0x7fa4f4）——疑为 fix 后环境变化或当年同为
+  无条目误报，留档待考。
+
+### 理论残留风险（未观测到）
+- 无条目页若未来被大区间 rb_set 覆盖 data=0 且随后 refreshProtection→mprotect PROT_NONE
+  →ERR=5（崩溃 B 硬件形态）。当前 wipeprobe 全量覆盖 0x100 段+0x7f 清除类，持续可观测。
+
+### 探针基建（新增）
+- patch_memprot_wipe_probe.py：rbtree 层 memprot 写追踪（rb_set_64/rb_unset caller+区间
+  +data；0x100000000-0x101000000 全量 + 0x7f 段 unset 全量/data=0）+ refreshProtection
+  PROT_NONE 上膛探针 [refprot-none]。
+- badpage 四段探针加 hasend 字段（rb_get_end 区分无条目 vs data=0）；已修 mprobe 两段
+  参数错位 bug、pr_end 类型 uintptr_t。
+- probe 系 bin 链：probe21=d7600e6a / probe22=f808d8e2 / probe23=5d03c7d0 /
+  probe24=3e5c483d / probe25=a6dd03a0。
