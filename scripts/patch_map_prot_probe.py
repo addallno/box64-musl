@@ -178,7 +178,7 @@ JOBS = [
                         if(bad_cnt_m64 < 40) {
                             ++bad_cnt_m64;
                             fprintf(stderr, "[map64mprobe] badpage=%p vma=%d prot=0x%x hasend=%d i=%d block=%p first=%p\\n",
-                                (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first, pr_has);
+                                (void*)pg, vma_ok, pr, pr_has, i, p_blocks[i].block, p_blocks[i].first);
                             if(bad_cnt_m64 <= 3) {
                                 FILE* mf = fopen("/proc/self/maps", "r");
                                 if(mf) {
@@ -225,7 +225,7 @@ JOBS = [
                         if(bad_cnt_m128 < 40) {
                             ++bad_cnt_m128;
                             fprintf(stderr, "[map128mprobe] badpage=%p vma=%d prot=0x%x hasend=%d i=%d block=%p first=%p\\n",
-                                (void*)pg, vma_ok, pr, i, p_blocks[i].block, p_blocks[i].first, pr_has);
+                                (void*)pg, vma_ok, pr, pr_has, i, p_blocks[i].block, p_blocks[i].first);
                             if(bad_cnt_m128 <= 3) {
                                 FILE* mf = fopen("/proc/self/maps", "r");
                                 if(mf) {
