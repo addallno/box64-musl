@@ -212,3 +212,21 @@ bionic 环境，不代表 q57 场景）：
   参数错位 bug、pr_end 类型 uintptr_t。
 - probe 系 bin 链：probe21=d7600e6a / probe22=f808d8e2 / probe23=5d03c7d0 /
   probe24=3e5c483d / probe25=a6dd03a0。
+
+## pathmap 通用性扩展（2026-10-23，gen4=37e16866）
+
+- **my32_syscall layer1 pathmap**（1e33b10+a34d07e）：32 位 raw syscall 栈参数
+  b[] 按 mask32 位图重写路径，锚在 printf_log 前（注意脚本内 C 字符串 \n
+  须写 \\n）。
+- **pathmask 表修正**（2244e37）：mask32 九处号错位修正（对照权威
+  unistd_32.h）+ 补缺（xattr 族/openat2/utimensat_time64 等）；mask64 补对称
+  项至 58。swap_table 锚必须用定义行（防 pathmap.h 声明行误命中）。
+- **双 path 缓冲 bug**（5fe619e）：rename(a,b) 单 __thread 缓冲两次映射互覆
+  → 4 槽环形 bufs[4]。随之修复 sizeof(buf) 指针化回归（6094da3，超长判定
+  改用 PM_BUFSZ）。
+- **pmtest 实测**（静态 glibc x86_64，PMROOT=/tmp + PATHMAP=/tmp:$HOME/pmtmap）：
+  gen4 = **26 ok / 9 FAIL**；rename/renameat/renameat2 全 ok（4槽修复生效）、
+  映射落盘 pmtmap/pmt_{src,dst} 实证。9 FAIL 全为 box64 上游 raw syscall 缺口
+  （truncate/chown/lchown/link/setxattr/getxattr/removexattr=ENOSYS 38；
+  unlink=ENOENT 2、unlinkat=EINVAL 22——上游 handler 无 path 重写），非本管线
+  pathmap 回归。
