@@ -218,9 +218,25 @@ uint8_t box64_pathmask64(uint32_t nr)
         {92, 1},       // chown(path, uid, gid)
         {94, 1},       // lchown(path, uid, gid)
         {133, 1},      // mknod(path, mode, dev)
+        {134, 1},      // uselib(lib)
         {137, 1},      // statfs(path, buf)
+        {155, 3},      // pivot_root(old, new) 两个 path（bit0+bit1）
         {161, 1},      // chroot(path)
+        {163, 1},      // acct(file)
+        {167, 1},      // swapon(path)
+        {168, 1},      // swapoff(path)
+        {179, 2},      // quotactl(cmd, special, ...) special=path arg1
+        {188, 1},      // setxattr(path, ...)
+        {189, 1},      // lsetxattr(path, ...)
+        {191, 1},      // getxattr(path, ...)
+        {192, 1},      // lgetxattr(path, ...)
+        {194, 1},      // listxattr(path, ...)
+        {195, 1},      // llistxattr(path, ...)
+        {197, 1},      // removexattr(path, ...)
+        {198, 1},      // lremovexattr(path, ...)
         {235, 1},      // utimes(path, times)
+        {240, 1},      // mq_open(name, ...)
+        {241, 1},      // mq_unlink(name)
         {254, 1},      // inotify_add_watch(fd, path, mask)
         {257, 2},      // openat(dirfd, path, flags, mode)
         {258, 2},      // mkdirat(dirfd, path, mode)
@@ -236,9 +252,11 @@ uint8_t box64_pathmask64(uint32_t nr)
         {268, 2},      // fchmodat(dirfd, path, mode, flags)
         {269, 2},      // faccessat(dirfd, path, mode, flags)
         {280, 2},      // utimensat(dirfd, path, times, flags)
+        {303, 2},      // name_to_handle_at(dirfd, pathname, ...) pathname=arg1
         {316, 10},     // renameat2 与 renameat 同布局
         {322, 2},      // execveat(dirfd, path, argv, envp, flags)
         {332, 2},      // statx(dirfd, path, flags, mask, buf)
+        {437, 2},      // openat2(dirfd, path, how, size)
         {439, 2},      // faccessat2(dirfd, path, mode, flags)
     };
     for (size_t i = 0; i < sizeof(t) / sizeof(t[0]); ++i)
@@ -258,41 +276,67 @@ uint8_t box64_pathmask32(uint32_t nr)
         {12, 1},       // chdir
         {14, 1},       // mknod
         {15, 1},       // chmod
-        {16, 1},       // lchown
-        {18, 1},       // chown
+        {16, 1},       // lchown（老16位版，i386 仍有效）
+        {18, 1},       // oldstat（i386 老号=18，语义同 stat arg0）
         {30, 1},       // utime
         {33, 1},       // access
         {38, 3},       // rename
         {39, 1},       // mkdir
         {40, 1},       // rmdir
+        {51, 1},       // acct(file)
         {61, 1},       // chroot
         {83, 3},       // symlink
+        {84, 1},       // oldlstat
         {85, 1},       // readlink
+        {86, 1},       // uselib(lib)
+        {87, 1},       // swapon(path)
         {92, 1},       // truncate
+        {95, 1},       // fchown（i386 老号=95，路径在 arg0）
         {99, 1},       // statfs
         {106, 1},      // stat
         {107, 1},      // lstat
-        {195, 1},      // stat64（i386 glibc 实际走此，breakpad 32位 dumps 检查漏映射致 Fatal）
+        {115, 1},      // swapoff(path)
+        {131, 2},      // quotactl(cmd, special, ...) special=path arg1
+        {182, 1},      // chown（i386 现行号=182）
+        {193, 1},      // truncate64(path, len)
+        {195, 1},      // stat64（i386 glibc 实际走此）
         {196, 1},      // lstat64（i386）
-        {300, 2},      // fstatat64（i386, dirfd,path,buf,flags → path 在 ECX）
+        {198, 1},      // lchown32（i386 glibc 现行）
+        {212, 1},      // chown32（i386 glibc 现行）
+        {226, 1},      // setxattr(path, ...)
+        {227, 1},      // lsetxattr(path, ...)
+        {229, 1},      // getxattr(path, ...)
+        {230, 1},      // lgetxattr(path, ...)
+        {232, 1},      // listxattr(path, ...)
+        {233, 1},      // llistxattr(path, ...)
+        {235, 1},      // removexattr(path, ...)
+        {236, 1},      // lremovexattr(path, ...)
+        {268, 1},      // statfs64(path, buf)
         {271, 1},      // utimes
+        {277, 1},      // mq_open(name, ...)
+        {278, 1},      // mq_unlink(name)
         {292, 1},      // inotify_add_watch
         {295, 2},      // openat
         {296, 2},      // mkdirat
-        {297, 2},      // fchownat
-        {298, 2},      // futimesat
-        {299, 2},      // newfstatat
+        {297, 2},      // mknodat（i386 权威 297，原表误写 fchownat）
+        {298, 2},      // fchownat（权威 298）
+        {299, 2},      // futimesat（权威 299）
+        {300, 2},      // fstatat64（i386, path 在 arg1）
         {301, 2},      // unlinkat
         {302, 10},     // renameat
         {303, 10},     // linkat
         {304, 5},      // symlinkat target+arg2
-        {307, 2},      // readlinkat
-        {308, 2},      // fchmodat
-        {309, 2},      // faccessat
-        {311, 2},      // utimensat
-        {355, 10},     // renameat2
+        {305, 1},      // readlinkat（权威 305，原表误写 307）
+        {306, 2},      // fchmodat（权威 306，原表误写 308）
+        {307, 2},      // faccessat（权威 307，原表误写 309）
+        {320, 2},      // utimensat（权威 320，原表误写 311）
+        {341, 2},      // name_to_handle_at(dirfd, pathname) pathname=arg1
+        {353, 10},     // renameat2（权威 353，原表误写 355）
         {358, 2},      // execveat
         {383, 2},      // statx
+        {412, 2},      // utimensat_time64（32位 time64）
+        {437, 2},      // openat2
+        {439, 2},      // faccessat2
     };
     for (size_t i = 0; i < sizeof(t) / sizeof(t[0]); ++i)
         if (t[i].nr == nr)
