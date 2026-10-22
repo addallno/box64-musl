@@ -19,6 +19,10 @@ static int wipeprobe_hit(uintptr_t s, uintptr_t e)
 {
     return s < 0x101000000ULL && e > 0x100000000ULL;
 }
+static int wipeprobe_hit7f(uintptr_t s, uintptr_t e)
+{
+    return s < 0x8000000000ULL && e > 0x7f00000000ULL;
+}
 """
 
 JOBS = [
@@ -37,7 +41,7 @@ JOBS = [
 """,
                 RBTREE_HELPER + """int rb_set_64(rbtree_t *tree, uintptr_t start, uintptr_t end, uint64_t data) {
     // BOX64-BUILD: memprot-wipe-probe rbtree 层 memprot 写入
-    if(wipeprobe_memprot(tree->name) && wipeprobe_hit(start, end))
+    if(wipeprobe_memprot(tree->name) && (wipeprobe_hit(start, end) || (wipeprobe_hit7f(start, end) && data == 0)))
         fprintf(stderr, "[memset] caller=%p %lx-%lx data=%x\\n", __builtin_return_address(0), (unsigned long)start, (unsigned long)end, (unsigned)(uint32_t)data);
 """,
             ),
@@ -46,7 +50,7 @@ JOBS = [
 """,
                 """int rb_unset(rbtree_t *tree, uintptr_t start, uintptr_t end) {
     // BOX64-BUILD: memprot-wipe-probe rbtree 层 memprot 删除
-    if(wipeprobe_memprot(tree->name) && wipeprobe_hit(start, end))
+    if(wipeprobe_memprot(tree->name) && (wipeprobe_hit(start, end) || wipeprobe_hit7f(start, end)))
         fprintf(stderr, "[munset] caller=%p %lx-%lx\\n", __builtin_return_address(0), (unsigned long)start, (unsigned long)end);
 """,
             ),
