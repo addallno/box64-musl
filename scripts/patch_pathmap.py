@@ -183,7 +183,11 @@ const char* box64_pathmap(const char* path)
         pthread_mutex_unlock(&pm_lock);
         return path;
     }
-    static __thread char buf[PM_BUFSZ];
+    // 4 槽环形缓冲：rename/link 等双 path 参数在同一次调用里连续映射，
+    // 单缓冲会让后一次覆盖前一次的返回值（rename 变 rename-to-self → ENOENT）
+    static __thread char bufs[4][PM_BUFSZ];
+    static __thread int pm_bi = 0;
+    char* buf = bufs[pm_bi++ & 3];
     const char* rest = path + bestlen;
     size_t need = strlen(pm_tbl[best].to) + strlen(rest);
     if (need >= sizeof(buf)) {
