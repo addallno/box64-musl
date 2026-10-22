@@ -326,6 +326,20 @@ def l1_32(sig):
     return "\n".join(lines)
 
 
+def l1_my32():
+    # my32_syscall：参数在栈数组 b（stack(n)=b[n/4]），arg i 位于 b[i]；
+    # s 为 i386 libc syscall 号，与 box64_pathmask32 表同域
+    lines = [f"    // {SENTINEL} (layer1-my32)",
+             "    {",
+             "        uint8_t pm = box64_pathmask32(s);",
+             "        if(pm) {"]
+    for i in range(6):
+        lines.append(
+            f"            if(pm&{1 << i}) b[{i}] = (ptr_t)(uintptr_t)box64_pathmap((const char*)(uintptr_t)b[{i}]);")
+    lines += ["        }", "    }", ""]
+    return "\n".join(lines)
+
+
 def main():
     if len(sys.argv) != 2:
         fail("用法: patch_pathmap.py <box64目录>")
@@ -379,6 +393,10 @@ def main():
         ('    printf_log(LOG_DEBUG, "%04d|%p: Calling 32bits syscall 0x%02X (%d) %p %p %p %p %p", GetTID()',
          l1_32("x86_32") +
          '    printf_log(LOG_DEBUG, "%04d|%p: Calling 32bits syscall 0x%02X (%d) %p %p %p %p %p", GetTID()'),
+        # my32_syscall：BOX32 栈参数版 libc syscall 包装（此前 v1 留白）
+        ('    printf_log(LOG_DEBUG, "%p: Calling libc syscall 0x%02X (%d) %p %p %p %p %p\n"',
+         l1_my32() +
+         '    printf_log(LOG_DEBUG, "%p: Calling libc syscall 0x%02X (%d) %p %p %p %p %p\n"'),
     ])
 
     # ---- x86syscall.c：include + x86Syscall layer1 ----

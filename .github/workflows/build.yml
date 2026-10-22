@@ -103,6 +103,17 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # 通用性开发：把打完全部 patch 的源码树传回本地（pathmask 分析/新补丁锚点核对）
+      - name: 上传 patch 后源码树
+        uses: actions/upload-artifact@v4
+        with:
+          name: box64-src-patched
+          path: |
+            /tmp/box64-build/box64
+            !/tmp/box64-build/box64/.git
+          if-no-files-found: error
+          retention-days: 7
+
       # 批次3 #16：pin 构建通过后追加 main 对照构建（仅验证可构建，产物不上传）
       - name: main 对照构建（仅 schedule，#16 漂移预警）
         if: ${{ github.event_name == 'schedule' && steps.ref.outputs.ref != 'main' }}
