@@ -190,7 +190,7 @@ const char* box64_pathmap(const char* path)
     char* buf = bufs[pm_bi++ & 3];
     const char* rest = path + bestlen;
     size_t need = strlen(pm_tbl[best].to) + strlen(rest);
-    if (need >= sizeof(buf)) {
+    if (need >= PM_BUFSZ) {
         pthread_mutex_unlock(&pm_lock);
         return path;    // 超长降级：不映射
     }
