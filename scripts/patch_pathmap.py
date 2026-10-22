@@ -394,9 +394,9 @@ def main():
          l1_32("x86_32") +
          '    printf_log(LOG_DEBUG, "%04d|%p: Calling 32bits syscall 0x%02X (%d) %p %p %p %p %p", GetTID()'),
         # my32_syscall：BOX32 栈参数版 libc syscall 包装（此前 v1 留白）
-        ('    printf_log(LOG_DEBUG, "%p: Calling libc syscall 0x%02X (%d) %p %p %p %p %p\n"',
+        ('    printf_log(LOG_DEBUG, "%p: Calling libc syscall 0x%02X (%d) %p %p %p %p %p\\n"',
          l1_my32() +
-         '    printf_log(LOG_DEBUG, "%p: Calling libc syscall 0x%02X (%d) %p %p %p %p %p\n"'),
+         '    printf_log(LOG_DEBUG, "%p: Calling libc syscall 0x%02X (%d) %p %p %p %p %p\\n"'),
     ])
 
     # ---- x86syscall.c：include + x86Syscall layer1 ----
