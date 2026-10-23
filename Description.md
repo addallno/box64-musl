@@ -230,3 +230,20 @@ bionic 环境，不代表 q57 场景）：
   （truncate/chown/lchown/link/setxattr/getxattr/removexattr=ENOSYS 38；
   unlink=ENOENT 2、unlinkat=EINVAL 22——上游 handler 无 path 重写），非本管线
   pathmap 回归。
+
+## 64 位适用性增强：sysgap（2026-10-23，gen5=6d999333）
+
+- **缺口分析**（pmtest 64 位 + BOX64_LOG=1 Unsupported 警告定位）：7 项 ENOSYS
+  = 上游 x64syscall.c 无 case/无表项——aarch64 host 缺 __NR_truncate/link/
+  chown/lchown（#ifdef 掉），xattr 族转换表只映了 listxattr 194-196。
+- **patch_sysgap.py**（哨兵 BOX64-BUILD: sysgap，3 处锚）：
+  - x64Syscall_linux switch 补 case 76 truncate / 86 link / 92 chown / 94 lchown
+    （S_RAX 风格）；my_syscall switch 同四 case（return 风格，参数 R_RSI 起）
+  - syscallwrap[] 补 xattr 族 9 项（188-193、197-199，带 #ifdef __NR_setxattr）
+- **pmtest unlinkat 修正**：AT_SYMLINK_NOFOLLOW 对 unlinkat 非法（内核正确返
+  EINVAL），改 flag=0。
+- **实测**：pmtest 64 位 26 ok → **33/35**；余 2 项为设备环境限制（link
+  EACCES = Termux/SELinux seclabel 禁 hardlink，host 直连 ln 同样失败；
+  unlink=2 为 link 未建成的级联）。
+- **回归**：steamcmd linux32/linux64 各 1 轮 rc=124 SEGV=0 ABRT=0、
+  unsupported=0。
