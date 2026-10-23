@@ -75,7 +75,7 @@ int main(void) {
     CK("listxattr", listxattr(P2, buf, sizeof buf) > 0 ? 0 : -1);
     CK("removexattr", removexattr(P2, "user.t"));
     CK("unlink", unlink(HARD));
-    CK("unlinkat", unlinkat(AT_FDCWD, LNK, AT_SYMLINK_NOFOLLOW));
+    CK("unlinkat", unlinkat(AT_FDCWD, LNK, 0));
     { char d[600]; snprintf(d, sizeof d, "%s/d2", D2); CK("mkdirat", mkdirat(AT_FDCWD, d, 0755)); }
     CK("renameat", renameat(AT_FDCWD, P2, AT_FDCWD, P));
     CK("renameat2", renameat2(AT_FDCWD, P, AT_FDCWD, P2, 0));

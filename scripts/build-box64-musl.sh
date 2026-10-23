@@ -345,6 +345,9 @@ python3 $GITHUB_WORKSPACE/scripts/patch_pathmap2.py $WORK/box64
 echo "==> 打 pathmap3 补丁（shm_open/shm_unlink TMPDIR fallback，threadtools 断言）"
 python3 $GITHUB_WORKSPACE/scripts/patch_pathmap3.py $WORK/box64
 
+echo "==> 打 sysgap 补丁（truncate/link/chown/lchown case + xattr 转换表，上游 raw syscall 缺口）"
+python3 $GITHUB_WORKSPACE/scripts/patch_sysgap.py $WORK/box64
+
 echo "==> 打 showenv 补丁（-e/--show-env 打印 box64env）"
 python3 $GITHUB_WORKSPACE/scripts/patch_showenv.py $WORK/box64
 
