@@ -348,6 +348,9 @@ python3 $GITHUB_WORKSPACE/scripts/patch_pathmap3.py $WORK/box64
 echo "==> 打 sysgap 补丁（truncate/link/chown/lchown case + xattr 转换表，上游 raw syscall 缺口）"
 python3 $GITHUB_WORKSPACE/scripts/patch_sysgap.py $WORK/box64
 
+echo "==> 打 sysgap32 补丁（i386 truncate/link/chown/xattr 族 case+表，静态 32 位程序 ENOSYS）"
+python3 $GITHUB_WORKSPACE/scripts/patch_sysgap32.py $WORK/box64
+
 echo "==> 打 showenv 补丁（-e/--show-env 打印 box64env）"
 python3 $GITHUB_WORKSPACE/scripts/patch_showenv.py $WORK/box64
 
