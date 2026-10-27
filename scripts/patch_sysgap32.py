@@ -59,6 +59,13 @@ XATTR_TABLE = (
     "    { 236, __NR_lremovexattr, 2 },\n"
     "    { 237, __NR_fremovexattr, 2 },\n"
     "    #endif\n"
+    "    { 15, __NR_chmod, 2 },\n"
+    "    { 33, __NR_access, 2 },\n"
+    "    { 38, __NR_rename, 2 },\n"
+    "    { 39, __NR_mkdir, 2 },\n"
+    "    { 40, __NR_rmdir, 1 },\n"
+    "    { 83, __NR_symlink, 2 },\n"
+    "    { 85, __NR_readlink, 3 },\n"
 )
 
 # x86Syscall 风格：R_EAX 赋值 + errno 转换 + break，参数 R_EBX/R_ECX/R_EDX
@@ -91,6 +98,11 @@ CASE_X86 = (
     "            if(R_EAX==0xffffffff && errno>0)\n"
     "                R_EAX = (uint32_t)-errno;\n"
     "            break;\n"
+    "        case 10: // " + SENTINEL + " sys_unlink(path) aarch64 无 __NR_unlink\n"
+    "            R_EAX = unlink((void*)R_EBX);\n"
+    "            if(R_EAX==0xffffffff && errno>0)\n"
+    "                R_EAX = (uint32_t)-errno;\n"
+    "            break;\n"
 )
 
 # x86Syscall 的 default 锚（含 "Syscall 32"，区别 64 位 x64syscall.c）
@@ -114,6 +126,8 @@ CASE_MY32 = (
     "        case 193: // " + SENTINEL + " sys_truncate64 栈 arg1 低=4 高=8\n"
     "            return (uint32_t)truncate(p(0),\n"
     "                (off_t)(((uint64_t)u32(8) << 32) | u32(4)));\n"
+    "        case 10: // " + SENTINEL + " sys_unlink\n"
+    "            return (uint32_t)unlink(p(0));\n"
 )
 ANCHOR_MY32_DEFAULT = (
     "        default:\n"
