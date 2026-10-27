@@ -247,3 +247,30 @@ bionic 环境，不代表 q57 场景）：
   unlink=2 为 link 未建成的级联）。
 - **回归**：steamcmd linux32/linux64 各 1 轮 rc=124 SEGV=0 ABRT=0、
   unsupported=0。
+
+## 32 位适用性增强：sysgap32（2026-10-28，gen8=7f7e4aab）
+
+- **缺口**：x86Syscall/my32_syscall raw switch 仅 27/33 case，路径类全缺——
+  静态 32 位程序（int0x80）路径 syscall 全 ENOSYS（实测 pmtest32 9 项 -38）。
+- **patch_sysgap32.py**（哨兵 BOX64-BUILD: sysgap32，5 job：x86syscall_32.c
+  表锚 `{270,tgkill}` + 双 default；x86syscall.c 表锚 `{224,gettid}` + default）：
+  - **case（双函数）**：truncate 92 / link 9 / lchown 16+198 / chown 182+212 /
+    truncate64 193 / unlink 10 / chmod 15 / access 33 / rename 38 / mkdir 39 /
+    rmdir 40 / symlink 83 / readlink 85——musl 交叉工具链无 __NR_chmod 等
+    旧号（CI 首跑实证），全走 case+libc；xattr 12 族（226-237）走表。
+  - mask32 已全备（patch_pathmap.py 32 位 68 项），只补实现不动位图。
+- **pmlow 截断修复（4da17b9）**：BOX32 下 x86Syscall layer1 以 (uint32_t)
+  保存 box64_pathmap 返回值，>4GB buf 被截断→host EFAULT（strace 实证
+  host 收 0x9d3e6af0 洞地址；无 PATHMAP 时返回原 guest 指针无损=ENOENT）。
+  box64_pathmap 命中映射后结果复制到 hint-mmap <4GB 低地址缓冲（仅非 FIXED
+  hint，防 MAP_FIXED 摧毁低地址 guest 内存；全部失败回退原高地址行为）。
+  my32 用 ptr_t(64位) 本无截断，修复对双路径一致化。
+- **测试件 pmtest32.s**：手写静态 i386（as --32 + ld -m elf_i386，本机无
+  multilib 不依赖），17 项 raw int80 输出 68 字节；i386 第 5 参=EDI（首版
+  误放 EBP 致 setxattr EINVAL）。
+- **实测**：17/17 接通零 ENOSYS——link=-13 与 host ln 同拒（环境）；
+  unlink=-2 为 link 未建成级联（语义正确）；readlink=40 即映射后路径全
+  长（实证 layer1 pathmap 生效）。
+- **回归**：64 位 pmtest 清理后 33/35 与正式 bin 完全一致（pmlow 零回归）；
+  steamcmd linux32/linux64 双 bin 同环境行为一致（0 SEGV/0 ABRT/0
+  unsupported；fakecert 已在新设备重建）。
