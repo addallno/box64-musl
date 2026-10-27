@@ -141,6 +141,41 @@ static void pm_parse(const char* env)
     pm_n = n;
 }
 
+/* BOX64-BUILD: pmlow —— 32 位 caller 截断防御
+   BOX32 下 x86Syscall layer1 以 (uint32_t) 保存本函数返回值，若返回高地址
+   （box64 进程 bss/bufs >4GB）会被截断成野指针 → host EFAULT。
+   这里把映射结果复制到 <4GB 低地址缓冲；仅用非 FIXED hint mmap（FIXED 会摧毁
+   BOX32 映射在低地址的 guest 内存），全部失败则回退原高地址（与旧行为一致）。 */
+static char* pm_low = NULL;
+static int pm_low_state = 0;    // 0=未试 1=成功 2=失败
+static char* pm_lowbuf(int idx)
+{
+    if (pm_low_state == 0) {
+        static const uintptr_t hints[] = {
+            0x10000000u, 0x14000000u, 0x18000000u, 0x20000000u,
+            0x30000000u, 0x40000000u, 0x60000000u, 0x70000000u
+        };
+        size_t sz = PM_BUFSZ * 4;
+        for (size_t i = 0; i < sizeof(hints) / sizeof(hints[0]); ++i) {
+            void* p = mmap((void*)hints[i], sz, PROT_READ | PROT_WRITE,
+                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+            if (p == MAP_FAILED)
+                continue;
+            if ((uintptr_t)p <= 0xffffffffu - sz) {
+                pm_low = (char*)p;
+                pm_low_state = 1;
+                break;
+            }
+            munmap(p, sz);    // 内核另选了高地址：释放重试下一个 hint
+        }
+        if (pm_low_state == 0)
+            pm_low_state = 2;
+    }
+    if (pm_low_state != 1)
+        return NULL;
+    return pm_low + (idx & 3) * PM_BUFSZ;
+}
+
 const char* box64_pathmap(const char* path)
 {
     if (!path)
@@ -196,6 +231,13 @@ const char* box64_pathmap(const char* path)
     }
     strcpy(buf, pm_tbl[best].to);
     strcat(buf, rest);
+    /* pmlow：结果复制到低地址槽，保证32 位截断保存后仍指向有效映射串 */
+    char* low = pm_lowbuf(pm_bi);
+    if (low) {
+        memcpy(low, buf, need + 1);
+        pthread_mutex_unlock(&pm_lock);
+        return low;
+    }
     pthread_mutex_unlock(&pm_lock);
     // 单次映射：结果不再二次匹配（防链式规则双重改写）
     return buf;
