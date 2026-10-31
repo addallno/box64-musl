@@ -366,6 +366,9 @@ python3 $GITHUB_WORKSPACE/scripts/patch_futex_eownerdied.py $WORK/box64
 echo "==> 打 mutex-deadowner 补丁（wrapped pthread_mutex_lock 层复位已死 owner 锁字防 fork 死锁）"
 python3 $GITHUB_WORKSPACE/scripts/patch_mutex_deadowner_wrap.py $WORK/box64
 
+echo "==> 打 threads32-deadowner 补丁（32位 mutex/cond 桥复位已死 owner，修 KIND_SIGN 透传 musl 死锁）"
+python3 $GITHUB_WORKSPACE/scripts/patch_threads32_deadowner.py $WORK/box64
+
 echo "==> 打 atfork-on-clone 补丁（raw clone fork语义 child 手动跑 box64 atfork handler 防 mutex_dyndump 死锁）"
 python3 $GITHUB_WORKSPACE/scripts/patch_atfork_on_clone.py $WORK/box64
 
@@ -414,6 +417,8 @@ USE_LINE=$(grep -n 'ai->ai_flags = oflags | BOX64_GAI_FB_FLAG' "$CHECK_SRC" | he
 grep -q 'box64_dns_fallback' "$CHECK_SRC" || fail_check "patch_gai 注入的 fallback 缺失（链序被破坏）"
 grep -q 'EXPORT void\* my___sched_cpualloc(x64emu_t\* emu' "$CHECK_SRC" || fail_check "my___sched_cpualloc 缺失或无 emu"
 grep -q 'BOX64_MUTEX_DEBUG' "$WORK/box64/src/wrapped/wrappedlibpthread.c" || fail_check "md-enter 未接 BOX64_MUTEX_DEBUG 门控"
+grep -q 'BOX64-BUILD: threads32-deadowner' "$WORK/box64/src/libtools/threads32.c" || fail_check "threads32-deadowner 未注入 threads32.c"
+[ "$(grep -c 'box64_fix_dead_mutex(m);' "$WORK/box64/src/libtools/threads32.c")" = "4" ] || fail_check "threads32 cond 桥 fix 调用数 != 4"
 if [ "${PROBE:-true}" != "false" ]; then
 grep -q 'BOX64-BUILD: map-prot-probe' "$WORK/box64/src/custommem.c" || fail_check "map-prot-probe 未注入 custommem.c"
 grep -q 'BOX64-BUILD: map-prot-probe' "$WORK/box64/src/custommmap.c" || fail_check "map-prot-probe 未注入 custommmap.c"
