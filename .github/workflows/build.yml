@@ -80,16 +80,17 @@ jobs:
         if: ${{ steps.ref.outputs.static == 'true' }}
         run: |
           set -euo pipefail
-          sudo apt-get install -y qemu-user-static
+          sudo apt-get install -y qemu-user || sudo apt-get install -y qemu-user-binfmt
+          QEMU=$(command -v qemu-aarch64-static || command -v qemu-aarch64)
           gcc -O1 -static -o /tmp/minidiv_x86 tests/minidiv.c
           gcc -O1 -static -pthread -o /tmp/thrmin_x86 tests/thrmin.c
           cp /tmp/box64-aarch64-musl /tmp/box64-smoke
           chmod +x /tmp/box64-smoke
           echo "== minidiv =="
-          BOX64_DYNAREC=0 timeout 60 qemu-aarch64-static /tmp/box64-smoke /tmp/minidiv_x86 2>&1 | tee /tmp/minidiv.log
+          BOX64_DYNAREC=0 timeout 60 "$QEMU" /tmp/box64-smoke /tmp/minidiv_x86 2>&1 | tee /tmp/minidiv.log
           grep -q DIV_OK /tmp/minidiv.log
           echo "== thrmin =="
-          BOX64_DYNAREC=0 timeout 60 qemu-aarch64-static /tmp/box64-smoke /tmp/thrmin_x86 2>&1 | tee /tmp/thrmin.log
+          BOX64_DYNAREC=0 timeout 60 "$QEMU" /tmp/box64-smoke /tmp/thrmin_x86 2>&1 | tee /tmp/thrmin.log
           grep -q THR_OK /tmp/thrmin.log
           echo "冒烟测试通过"
 
