@@ -419,6 +419,7 @@ grep -q 'EXPORT void\* my___sched_cpualloc(x64emu_t\* emu' "$CHECK_SRC" || fail_
 grep -q 'BOX64_MUTEX_DEBUG' "$WORK/box64/src/wrapped/wrappedlibpthread.c" || fail_check "md-enter 未接 BOX64_MUTEX_DEBUG 门控"
 grep -q 'BOX64-BUILD: threads32-deadowner' "$WORK/box64/src/libtools/threads32.c" || fail_check "threads32-deadowner 未注入 threads32.c"
 [ "$(grep -c 'box64_fix_dead_mutex(m);' "$WORK/box64/src/libtools/threads32.c")" = "4" ] || fail_check "threads32 cond 桥 fix 调用数 != 4"
+grep -q 'BOX64-BUILD: threads32-mtrace' "$WORK/box64/src/libtools/threads32.c" || fail_check "threads32-mtrace 未注入 threads32.c"
 if [ "${PROBE:-true}" != "false" ]; then
 grep -q 'BOX64-BUILD: map-prot-probe' "$WORK/box64/src/custommem.c" || fail_check "map-prot-probe 未注入 custommem.c"
 grep -q 'BOX64-BUILD: map-prot-probe' "$WORK/box64/src/custommmap.c" || fail_check "map-prot-probe 未注入 custommmap.c"
