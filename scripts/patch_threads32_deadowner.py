@@ -26,25 +26,41 @@ S_TRACE = "BOX64-BUILD: threads32-mtrace"
 EXT_DECL = "extern int box64_fix_dead_mutex(void*);"
 
 HELPER = """
-// %s — 定点追踪（BOX64_MTRACE_ADDR 指定 guest mutex/cond 地址）
+// %s — 定点追踪（BOX64_MTRACE_ADDR 指定 guest mutex/cond 地址，BOX64_MTRACE_LEN 指定命中范围，默认 4）
 static int box64_mtrace_on(void* m, void* c)
 {
     static void* want = (void*)-1;
+    static uintptr_t len = 4;
     if(want == (void*)-1) {
         const char* e = getenv("BOX64_MTRACE_ADDR");
         want = e ? (void*)strtoull(e, NULL, 0) : NULL;
+        const char* l = getenv("BOX64_MTRACE_LEN");
+        if(l) len = (uintptr_t)strtoull(l, NULL, 0);
+        if(!len) len = 4;
     }
-    return want && (m == want || c == want);
+    if(!want) return 0;
+    if((uintptr_t)m - (uintptr_t)want < len) return 1;
+    if(c && (uintptr_t)c - (uintptr_t)want < len) return 1;
+    return 0;
 }
 static void box64_mtrace(const char* fn, const char* ph, void* m, void* c, int ret)
 {
     if(!box64_mtrace_on(m, c)) return;
     uint32_t* w = (uint32_t*)m;
-    char b[256];
+    uint32_t rip = 0, esp = 0, ra = 0;
+    x64emu_t* emu = thread_get_emu_no_create();
+    if(emu) {
+        rip = (uint32_t)R_RIP;
+        esp = (uint32_t)R_ESP;
+        // 32 位 guest 栈顶即返回地址；范围保护避免非法访问
+        if(esp > 0x10000u) ra = *(uint32_t*)(uintptr_t)esp;
+    }
+    char b[320];
     int n = snprintf(b, sizeof(b),
-        "mtrace tid=%%d %%s-%%s m=%%p c=%%p r=%%d w=%%08x,%%08x,%%08x,%%08x,%%08x // %s\\n",
+        "mtrace tid=%%d %%s-%%s m=%%p c=%%p r=%%d w=%%08x,%%08x,%%08x,%%08x,%%08x rip=%%08x esp=%%08x ra=%%08x // %s\\n",
         (int)GetTID(), fn, ph, m, c, ret,
-        w?w[0]:0, w?w[1]:0, w?w[2]:0, w?w[3]:0, w?w[4]:0);
+        w?w[0]:0, w?w[1]:0, w?w[2]:0, w?w[3]:0, w?w[4]:0,
+        rip, esp, ra);
     if(n > 0) write(2, b, (size_t)n);
 }
 """ % (S_TRACE, S_TRACE)
