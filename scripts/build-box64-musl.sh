@@ -369,6 +369,9 @@ python3 $GITHUB_WORKSPACE/scripts/patch_mutex_deadowner_wrap.py $WORK/box64
 echo "==> 打 threads32-deadowner 补丁（32位 mutex/cond 桥复位已死 owner，修 KIND_SIGN 透传 musl 死锁）"
 python3 $GITHUB_WORKSPACE/scripts/patch_threads32_deadowner.py $WORK/box64
 
+echo "==> 打 memdbg-state 补丁（导出 custommem 全局状态供崩溃时诊断）"
+python3 $GITHUB_WORKSPACE/scripts/patch_memdbg_state.py $WORK/box64
+
 echo "==> 打 sig32-dlv-probe 补丁（32位 guest 信号投递探针，查 crashhandler 重入）"
 python3 $GITHUB_WORKSPACE/scripts/patch_sig32_probe.py $WORK/box64
 
@@ -424,6 +427,7 @@ grep -q 'BOX64-BUILD: threads32-deadowner' "$WORK/box64/src/libtools/threads32.c
 [ "$(grep -c 'box64_fix_dead_mutex(m);' "$WORK/box64/src/libtools/threads32.c")" = "4" ] || fail_check "threads32 cond 桥 fix 调用数 != 4"
 grep -q 'BOX64-BUILD: threads32-mtrace' "$WORK/box64/src/libtools/threads32.c" || fail_check "threads32-mtrace 未注入 threads32.c"
 grep -q 'BOX64-BUILD: sig32-dlv-probe' "$WORK/box64/src/libtools/signal32.c" || fail_check "sig32-dlv-probe 未注入 signal32.c"
+grep -q 'BOX64-BUILD: memdbg-state' "$WORK/box64/src/custommem.c" || fail_check "memdbg-state 未注入 custommem.c"
 if [ "${PROBE:-true}" != "false" ]; then
 grep -q 'BOX64-BUILD: map-prot-probe' "$WORK/box64/src/custommem.c" || fail_check "map-prot-probe 未注入 custommem.c"
 grep -q 'BOX64-BUILD: map-prot-probe' "$WORK/box64/src/custommmap.c" || fail_check "map-prot-probe 未注入 custommmap.c"
