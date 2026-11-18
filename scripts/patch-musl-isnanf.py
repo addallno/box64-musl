@@ -251,6 +251,18 @@ def patch_threads_key_guard(s: str) -> tuple:
     return s, m
 
 
+# 上游 main 已自行完成 musl 适配的锚（pthread_t 类型统一/cast）：锚缺失且新形态在场=意图已满足
+SATISFIED_IFLI64 = "typedef int (*iFli_t)(pthread_t, int);"
+SATISFIED_IFLI32 = "typedef int  (*iFLi_t)(pthread_t, int);"
+SATISFIED_GETATTR32 = "pthread_getattr_np((pthread_t) th, get_attr(attr))"
+
+
+def _satisfied(old: str, s: str) -> bool:
+    return ((old == THREADS_IFLI and SATISFIED_IFLI64 in s)
+            or (old == THREADS32_IFLI and SATISFIED_IFLI32 in s)
+            or (old == THREADS32_GETATTR and SATISFIED_GETATTR32 in s))
+
+
 def patch_threads_c(s: str):
     """threads.c 的 musl 适配：cleanup 声明/mmap64/类型/dlvsym/attr affinity stub。"""
     count = 0
@@ -262,6 +274,8 @@ def patch_threads_c(s: str):
         if old in s:
             s = s.replace(old, new, 1)
             count += 1
+        elif _satisfied(old, s):
+            print(f"[patch-musl-isnanf] 上游已适配，跳过: {old.splitlines()[0][:60]}")
         else:
             fail(f" threads.c 未找到片段: {old.splitlines()[0][:60]}")
     if THREADS_STUB_PATCH not in s and THREADS_STUB_ANCHOR in s:
@@ -354,6 +368,8 @@ def patch_threads32_c(s: str):
         if old in s:
             s = s.replace(old, new, 1)
             count += 1
+        elif _satisfied(old, s):
+            print(f"[patch-musl-isnanf] 上游已适配，跳过: {old.splitlines()[0][:60]}")
         else:
             fail(f" threads32.c 未找到片段: {old.splitlines()[0][:60]}")
     # 注意：affinity stub 只注入 threads.c（box64-build 修复 multiple definition，
