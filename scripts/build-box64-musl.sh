@@ -405,6 +405,7 @@ if [ "${PROBE:-true}" != "false" ]; then
 python3 $GITHUB_WORKSPACE/scripts/patch_map_prot_probe.py $WORK/box64
 python3 $GITHUB_WORKSPACE/scripts/patch_memprot_wipe_probe.py $WORK/box64
 python3 $GITHUB_WORKSPACE/scripts/patch_dynarec_mmap_lock.py $WORK/box64
+python3 $GITHUB_WORKSPACE/scripts/patch_killarray_probe.py $WORK/box64
 else
   echo "==> 跳过诊断探针补丁 (PROBE=false 对照构建)"
 fi
